@@ -1,0 +1,51 @@
+{
+  "name": "meesho-pragati-backend",
+  "version": "1.0.0",
+  "description": "Production Express backend for Meesho Pragati Agent underwriting orchestration",
+  "main": "server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+  },
+  "dependencies": {
+    "@google-cloud/translate": "^8.5.0",
+    "@langchain/core": "^0.3.26",
+    "axios": "^1.7.9",
+    "compression": "^1.7.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "langchain": "^0.3.11",
+    "mongoose": "^8.9.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/config/**"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+[
+  "sales_velocity_6m",
+  "sales_growth_rate",
+  "rto_rate",
+  "dispatch_sla_compliance",
+  "avg_customer_rating",
+  "rating_trend",
+  "order_cancellation_rate",
+  "ad_spend_roi",
+  "account_age_months",
+  "total_orders_6m",
+  "catalog_size",
+  "prior_loan_default"
+]
