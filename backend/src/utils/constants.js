@@ -24,9 +24,17 @@ export const YOUNG_ACCOUNT_MONTHS = 6;
 export const ML_TIMEOUT_MS = 5_000;
 export const ML_MAX_RETRIES = 3;
 
+// Legacy aliases kept for any code that still imports LLAMA_* constants
 export const LLAMA_TEMPERATURE = 0.2;
 export const LLAMA_TOP_P = 0.9;
 export const LLAMA_MAX_TOKENS = 700;
+
+// Groq provider constants
+export const GROQ_TEMPERATURE = 0.2;
+export const GROQ_TOP_P = 0.9;
+// Groq llama-3.1-8b-instant is fast and efficient; 512 tokens is
+// enough for seller_message + auditor_trail + improvement_plan JSON.
+export const GROQ_MAX_TOKENS = 512;
 
 /** BCP-47 codes for Google Translation fallback */
 export const LANGUAGE_CODES = {

@@ -8,12 +8,20 @@ import { logger } from "../config/logger.js";
  * @returns {Promise<Array<{role: string, message: string, timestamp: Date, language: string}>>}
  */
 export async function getConversationHistory(sellerId, limit = 20) {
-  const messages = await Conversation.find({ seller_id: sellerId })
-    .sort({ timestamp: -1 })
-    .limit(limit)
-    .lean();
+  try {
+    const messages = await Conversation.find({ seller_id: sellerId })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
 
-  return messages.reverse();
+    return messages.reverse();
+  } catch (error) {
+    logger.warn("Conversation history unavailable; continuing without MongoDB", {
+      sellerId,
+      error: error.message,
+    });
+    return [];
+  }
 }
 
 /**

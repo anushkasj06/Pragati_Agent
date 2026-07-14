@@ -1,4 +1,8 @@
-import { parseAgentJson, repairAndParseJson } from "../src/services/agentService.js";
+import {
+  buildFallbackAgentResponse,
+  parseAgentJson,
+  repairAndParseJson,
+} from "../src/services/agentService.js";
 
 describe("agentService JSON parsing", () => {
   it("parses clean JSON response", () => {
@@ -22,5 +26,30 @@ describe("agentService JSON parsing", () => {
 
   it("throws on completely invalid JSON", () => {
     expect(() => parseAgentJson("not json at all")).toThrow();
+  });
+
+  it("builds a deterministic fallback response when Groq is unavailable", () => {
+    const result = buildFallbackAgentResponse({
+      sellerId:    "seller-1",
+      mlResult:    { risk_class: "Low", risk_score: 82, loan_limit: 50000 },
+      rulesResult: { final_loan_limit: 45000, decision_status: "Approved" },
+      language:    "English",
+    });
+
+    expect(result.seller_message).toContain("approved");
+    expect(result.improvement_plan).toHaveLength(3);
+    expect(result.auditor_trail).toContain("45000");
+  });
+
+  it("fallback response includes language tag", () => {
+    const result = buildFallbackAgentResponse({
+      sellerId:    "seller-2",
+      mlResult:    { risk_class: "High", risk_score: 40, loan_limit: 10000 },
+      rulesResult: { final_loan_limit: 0, decision_status: "Rejected" },
+      language:    "Hindi",
+    });
+
+    expect(result.seller_message).toContain("Hindi");
+    expect(result.auditor_trail).toContain("Rejected");
   });
 });

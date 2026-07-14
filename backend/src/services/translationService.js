@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { v2 as TranslateV2 } from "@google-cloud/translate";
 import { logger } from "../config/logger.js";
 import { LANGUAGE_CODES, SUPPORTED_LANGUAGES } from "../utils/constants.js";
@@ -6,20 +8,42 @@ let translateClient = null;
 
 /**
  * Lazily initialise Google Cloud Translation client.
+ * Returns null (silently) when credentials are not configured or file is missing.
+ * This keeps the translation path fully optional.
  * @returns {TranslateV2.Translate|null}
  */
 function getTranslateClient() {
   if (translateClient) return translateClient;
 
-  if (!process.env.GOOGLE_PROJECT_ID) {
+  const projectId   = process.env.GOOGLE_PROJECT_ID;
+  const credFile    = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+  // Skip if project ID is missing or is the placeholder value
+  if (!projectId || projectId === "your-gcp-project-id") {
+    return null;
+  }
+
+  // Skip if credentials file path is missing or file does not exist on disk
+  if (!credFile) {
+    logger.warn("Translation skipped — GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  const resolvedPath = path.isAbsolute(credFile)
+    ? credFile
+    : path.resolve(process.cwd(), credFile);
+
+  if (!fs.existsSync(resolvedPath)) {
+    logger.warn("Translation skipped — credentials file not found", { path: resolvedPath });
     return null;
   }
 
   try {
     translateClient = new TranslateV2.Translate({
-      projectId: process.env.GOOGLE_PROJECT_ID,
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      projectId,
+      keyFilename: resolvedPath,
     });
+    logger.info("Google Translation client initialised", { projectId });
     return translateClient;
   } catch (error) {
     logger.warn("Google Translation client init failed", { error: error.message });

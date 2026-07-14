@@ -10,10 +10,12 @@ import swaggerJsdoc from "swagger-jsdoc";
 import { connectDB } from "./src/config/db.js";
 import { logger } from "./src/config/logger.js";
 import { logTwilioConfig } from "./src/config/twilio.js";
+import { validateGroqConfig } from "./src/config/groq.js";
 import { initializeAgent } from "./src/services/agentService.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 import loanRoutes from "./src/routes/loanRoutes.js";
+import debugRoutes from "./src/routes/debugRoutes.js";
 import { SERVICE_NAME, SERVICE_VERSION } from "./src/utils/constants.js";
 
 const PORT = process.env.PORT || 3001;
@@ -66,6 +68,7 @@ export function createApp() {
     res.json({ status: "ok", service: SERVICE_NAME, version: SERVICE_VERSION });
   });
 
+  app.use("/api/debug", debugRoutes);
   app.use("/api/loan", loanRoutes);
   app.use(errorHandler);
 
@@ -79,6 +82,9 @@ const app = createApp();
  */
 async function startServer() {
   try {
+    // Validate Groq config first — fail fast with a clear message
+    validateGroqConfig();
+
     await connectDB();
     initializeAgent();
     logTwilioConfig();
