@@ -9,14 +9,9 @@ export async function connectDB() {
   const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/pragati_agent";
 
   mongoose.set("strictQuery", true);
-  mongoose.set("bufferCommands", false);
 
   try {
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 1500,
-      socketTimeoutMS: 2000,
-      bufferCommands: false,
-    });
+    await mongoose.connect(uri);
     logger.info("MongoDB connected", { uri: uri.replace(/\/\/.*@/, "//***@") });
     return true;
   } catch (error) {

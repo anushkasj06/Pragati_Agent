@@ -84,36 +84,8 @@ function buildFallbackScore(sellerId, sellerData = {}) {
  *   top_reasoning_features: Array<{feature: string, impact: string, reason: string}>
  * }>}
  */
-function normalizeSellerPayload(sellerId, sellerData = {}) {
-  const normalized = {
-    seller_id: sellerId,
-    sales_velocity_6m: Number(sellerData.sales_velocity_6m ?? 0),
-    sales_growth_rate: Number(sellerData.sales_growth_rate ?? 0),
-    rto_rate: Number(sellerData.rto_rate ?? 0),
-    dispatch_sla_compliance: Number(sellerData.dispatch_sla_compliance ?? 0),
-    avg_customer_rating: Number(sellerData.avg_customer_rating ?? 0),
-    rating_trend: Number(sellerData.rating_trend ?? 0),
-    order_cancellation_rate: Number(sellerData.order_cancellation_rate ?? 0),
-    ad_spend_roi: Number(sellerData.ad_spend_roi ?? 0),
-    account_age_months: Number(sellerData.account_age_months ?? 0),
-    total_orders_6m: Number(sellerData.total_orders_6m ?? 0),
-    catalog_size: Number(sellerData.catalog_size ?? 0),
-    prior_loan_default: Number(sellerData.prior_loan_default ?? 0),
-  };
-
-  if (normalized.rto_rate < 2) normalized.rto_rate = 2;
-  if (normalized.dispatch_sla_compliance < 60) normalized.dispatch_sla_compliance = 60;
-  if (normalized.sales_velocity_6m < 5000) normalized.sales_velocity_6m = 5000;
-  if (normalized.account_age_months < 1) normalized.account_age_months = 1;
-  if (normalized.total_orders_6m < 50) normalized.total_orders_6m = 50;
-  if (normalized.catalog_size < 5) normalized.catalog_size = 5;
-  normalized.prior_loan_default = normalized.prior_loan_default === 1 ? 1 : 0;
-
-  return normalized;
-}
-
 export async function scoreSeller(sellerId, sellerData) {
-  const payload = normalizeSellerPayload(sellerId, sellerData);
+  const payload = { seller_id: sellerId, ...sellerData };
   let lastError;
 
   for (let attempt = 1; attempt <= ML_MAX_RETRIES; attempt++) {

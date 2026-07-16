@@ -3,16 +3,18 @@ import { scoreSeller } from "../services/mlService.js";
 import { runAgent } from "../services/agentService.js";
 import { evaluateRules } from "../services/rulesEngine.js";
 import { ensureSellerLanguage } from "../services/translationService.js";
-import { saveDecision } from "../services/decisionService.js";
+import { listDecisions, saveDecision } from "../services/decisionService.js";
 import {
   getConversationHistory,
   saveConversationMessage,
 } from "../services/conversationService.js";
-import { queueNotification } from "../services/notificationService.js";
+import { queueNotification, buildLoanEvaluationWhatsAppMessage } from "../services/notificationService.js";
+import { getSellerById } from "../services/sellerService.js";
 import { formatEvaluateResponse } from "../utils/responseFormatter.js";
 import { createHttpError } from "../middleware/errorHandler.js";
 import { logger } from "../config/logger.js";
 import { SUPPORTED_LANGUAGES } from "../utils/constants.js";
+import { normalizePhoneNumber } from "../utils/phoneUtils.js";
 
 /** Zod schema for seller feature payload */
 const sellerDataSchema = z.object({
@@ -38,6 +40,91 @@ const evaluateRequestSchema = z.object({
   phone_number: z.string().optional(),
 });
 
+export async function runLoanEvaluationPipeline({ sellerId, sellerData, language = "English" }) {
+  const pipelineStart = Date.now();
+
+  const mlStart = Date.now();
+  const mlResult = await scoreSeller(sellerId, sellerData);
+  const mlElapsed = Date.now() - mlStart;
+
+  const conversationHistory = await getConversationHistory(sellerId);
+
+  const rulesResult = evaluateRules({
+    mlLoanLimit: mlResult.loan_limit,
+    sellerData,
+  });
+
+  const agentStart = Date.now();
+  const agentOutput = await runAgent({
+    sellerId,
+    sellerData,
+    mlResult,
+    rulesResult,
+    conversationHistory,
+    language,
+  });
+  const agentElapsed = Date.now() - agentStart;
+
+  const translationStart = Date.now();
+  const sellerMessage = await ensureSellerLanguage(agentOutput.seller_message, language);
+  const translationElapsed = Date.now() - translationStart;
+
+  const totalElapsed = Date.now() - pipelineStart;
+
+  await saveDecision({
+    seller_id: sellerId,
+    seller_features: sellerData,
+    risk_class: mlResult.risk_class,
+    risk_score: mlResult.risk_score,
+    ml_loan_limit: mlResult.loan_limit,
+    final_loan_limit: rulesResult.final_loan_limit,
+    requires_human_review: rulesResult.requires_human_review,
+    decision_status: rulesResult.decision_status,
+    top_reasoning_features: mlResult.top_reasoning_features,
+    seller_message: sellerMessage,
+    auditor_trail: agentOutput.auditor_trail,
+    improvement_plan: agentOutput.improvement_plan ?? [],
+    execution_time_ms: totalElapsed,
+    language,
+  });
+
+  await saveConversationMessage({
+    sellerId,
+    role: "user",
+    message: `Loan evaluation requested for seller ${sellerId}`,
+    language,
+  });
+
+  await saveConversationMessage({
+    sellerId,
+    role: "assistant",
+    message: sellerMessage,
+    language,
+    metadata: {
+      risk_class: mlResult.risk_class,
+      loan_limit: rulesResult.final_loan_limit,
+    },
+  });
+
+  return formatEvaluateResponse({
+    sellerId,
+    decision: {
+      risk_class: mlResult.risk_class,
+      risk_score: mlResult.risk_score,
+      final_loan_limit: rulesResult.final_loan_limit,
+      requires_human_review: rulesResult.requires_human_review,
+      decision_status: rulesResult.decision_status,
+    },
+    topReasoningFeatures: mlResult.top_reasoning_features,
+    sellerMessage,
+    auditorTrail: agentOutput.auditor_trail,
+    improvementPlan: agentOutput.improvement_plan ?? [],
+    language,
+    executionTimeMs: totalElapsed,
+    isFallback: agentOutput.is_fallback === true,
+  });
+}
+
 /**
  * POST /api/loan/evaluate — full underwriting orchestration pipeline.
  * @param {import('express').Request} req
@@ -57,110 +144,86 @@ export async function evaluateLoan(req, res, next) {
     const { seller_id: sellerId, seller_data: sellerData, language, phone_number: phoneNumber } =
       parsed.data;
 
-    logger.info("Loan evaluation started", { sellerId, language });
+    const sellerProfile = await getSellerById(sellerId);
+    const resolvedPhoneNumber = phoneNumber || sellerProfile?.phone_number;
 
-    // 2. Call FastAPI ML service
-    const mlStart = Date.now();
-    const mlResult = await scoreSeller(sellerId, sellerData);
-    const mlElapsed = Date.now() - mlStart;
+    if (!resolvedPhoneNumber) {
+      logger.warn("Loan evaluation has no seller phone number", {
+        sellerId,
+        providedPhoneNumber: phoneNumber,
+        sellerProfileExists: Boolean(sellerProfile),
+      });
+    }
 
-    // 3. Load seller conversation history
-    const conversationHistory = await getConversationHistory(sellerId);
+    logger.info("Loan evaluation started", { sellerId, language, phoneNumber: resolvedPhoneNumber });
 
-    // 4. Apply deterministic rules engine (before agent so messages use final numbers)
-    const rulesResult = evaluateRules({
-      mlLoanLimit: mlResult.loan_limit,
-      sellerData,
-    });
-
-    logger.info("Rules engine output", { sellerId, ...rulesResult });
-
-    // 5. LangChain agent — interpret, explain, generate messages
-    const agentStart = Date.now();
-    const agentOutput = await runAgent({
+    const evaluationResponse = await runLoanEvaluationPipeline({
       sellerId,
       sellerData,
-      mlResult,
-      rulesResult,
-      conversationHistory,
-      language,
-    });
-    const agentElapsed = Date.now() - agentStart;
-
-    // 6. Translation fallback for seller message if needed
-    const translationStart = Date.now();
-    const sellerMessage = await ensureSellerLanguage(agentOutput.seller_message, language);
-    const translationElapsed = Date.now() - translationStart;
-
-    const totalElapsed = Date.now() - pipelineStart;
-
-    // 7. Save decision to MongoDB
-    await saveDecision({
-      seller_id: sellerId,
-      seller_features: sellerData,
-      risk_class: mlResult.risk_class,
-      risk_score: mlResult.risk_score,
-      ml_loan_limit: mlResult.loan_limit,
-      final_loan_limit: rulesResult.final_loan_limit,
-      requires_human_review: rulesResult.requires_human_review,
-      decision_status: rulesResult.decision_status,
-      top_reasoning_features: mlResult.top_reasoning_features,
-      seller_message: sellerMessage,
-      auditor_trail: agentOutput.auditor_trail,
-      improvement_plan: agentOutput.improvement_plan ?? [],
-      execution_time_ms: totalElapsed,
       language,
     });
 
-    // 8. Save conversation turns
-    await saveConversationMessage({
+    void queueNotification({
       sellerId,
-      role: "user",
-      message: `Loan evaluation requested for seller ${sellerId}`,
-      language,
+      phoneNumber: resolvedPhoneNumber,
+      body: buildLoanEvaluationWhatsAppMessage(evaluationResponse),
+      sellerMessage: evaluationResponse.seller_message,
+      loanStatus: evaluationResponse.decision.decision_status,
+      loanLimit: evaluationResponse.decision.loan_limit,
+      riskClass: evaluationResponse.decision.risk_class,
+      improvementPlan: evaluationResponse.improvement_plan ?? [],
+    }).catch((error) => {
+      logger.error("WhatsApp notification pipeline error", { sellerId, error: error.message });
     });
-
-    await saveConversationMessage({
-      sellerId,
-      role: "assistant",
-      message: sellerMessage,
-      language,
-      metadata: {
-        risk_class: mlResult.risk_class,
-        loan_limit: rulesResult.final_loan_limit,
-      },
-    });
-
-    // 9. Queue notification (placeholder)
-    await queueNotification({ sellerId, message: sellerMessage, phoneNumber });
 
     logger.info("Loan evaluation completed", {
       sellerId,
-      ml_elapsed_ms: mlElapsed,
-      agent_elapsed_ms: agentElapsed,
-      translation_elapsed_ms: translationElapsed,
-      total_elapsed_ms: totalElapsed,
+      total_elapsed_ms: Date.now() - pipelineStart,
     });
 
-    // 10. Return response
-    res.json(
-      formatEvaluateResponse({
-        sellerId,
-        decision: {
-          risk_class: mlResult.risk_class,
-          risk_score: mlResult.risk_score,
-          final_loan_limit: rulesResult.final_loan_limit,
-          requires_human_review: rulesResult.requires_human_review,
-          decision_status: rulesResult.decision_status,
-        },
-        topReasoningFeatures: mlResult.top_reasoning_features,
-        sellerMessage,
-        auditorTrail: agentOutput.auditor_trail,
-        improvementPlan: agentOutput.improvement_plan ?? [],
-        language,
-        executionTimeMs: totalElapsed,
-      })
-    );
+    res.json(evaluationResponse);
+  } catch (error) {
+    next(error);
+  }
+}
+
+function formatDecisionHistoryItem(decision) {
+  return {
+    id: decision._id?.toString?.() ?? `${decision.seller_id}-${decision.timestamp}`,
+    seller_id: decision.seller_id,
+    timestamp: decision.timestamp ?? decision.createdAt,
+    decision: {
+      risk_class: decision.risk_class,
+      risk_score: decision.risk_score,
+      loan_limit: decision.final_loan_limit,
+      requires_human_review: decision.requires_human_review,
+      decision_status: decision.decision_status,
+    },
+    language: decision.language,
+    seller_message: decision.seller_message,
+    auditor_trail: decision.auditor_trail,
+    improvement_plan: decision.improvement_plan ?? [],
+    top_reasoning_features: decision.top_reasoning_features ?? [],
+    execution_time_ms: decision.execution_time_ms,
+  };
+}
+
+/**
+ * GET /api/loan/decisions — recent saved underwriting decisions.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+export async function getDecisionHistory(req, res, next) {
+  try {
+    const decisions = await listDecisions({
+      sellerId: req.query.seller_id,
+      limit: req.query.limit,
+    });
+
+    res.json({
+      decisions: decisions.map(formatDecisionHistoryItem),
+    });
   } catch (error) {
     next(error);
   }

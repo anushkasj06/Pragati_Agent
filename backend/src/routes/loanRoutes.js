@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { evaluateLoan } from "../controllers/loanController.js";
+import { evaluateLoan, getDecisionHistory } from "../controllers/loanController.js";
+import { createApplication, listApplications, updateApplicationStatus } from "../services/applicationService.js";
 
 const router = Router();
 
@@ -33,5 +34,35 @@ const router = Router();
  *         description: Internal error
  */
 router.post("/evaluate", evaluateLoan);
+router.get("/decisions", getDecisionHistory);
+router.post("/applications", (req, res) => {
+  try {
+    const application = createApplication(req.body);
+    res.json({ application });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+router.get("/applications", (req, res) => {
+  const sellerId = req.query.seller_id || req.query.sellerId;
+  const status = req.query.status;
+  res.json({ applications: listApplications({ sellerId, status }) });
+});
+router.post("/applications/:id/approve", (req, res) => {
+  try {
+    const application = updateApplicationStatus(req.params.id, "approved", req.body.adminNote || "");
+    res.json({ application });
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+});
+router.post("/applications/:id/reject", (req, res) => {
+  try {
+    const application = updateApplicationStatus(req.params.id, "rejected", req.body.adminNote || "");
+    res.json({ application });
+  } catch (error) {
+    res.status(404).json({ error: error.message });
+  }
+});
 
 export default router;

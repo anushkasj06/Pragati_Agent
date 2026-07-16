@@ -145,25 +145,36 @@ export function getGroqModelInstance() {
 // ---------------------------------------------------------------------------
 
 export function buildFallbackAgentResponse({ sellerId, mlResult, rulesResult, language }) {
-  const finalLoanLimit  = rulesResult?.final_loan_limit ?? mlResult?.loan_limit ?? 0;
-  const decisionStatus  = rulesResult?.decision_status  ?? "Approved";
-  const lenderMessage   =
-    `Your application is currently ${decisionStatus.toLowerCase()} with a loan limit of ₹${finalLoanLimit}. ` +
-    `Based on your business metrics, we have completed a full risk evaluation. ` +
-    `We are here to support your growth on Meesho.`;
+  const finalLoanLimit = rulesResult?.final_loan_limit ?? mlResult?.loan_limit ?? 0;
+  const decisionStatus = rulesResult?.decision_status ?? "Approved";
+  const riskClass      = mlResult?.risk_class ?? "unknown";
+  const riskScore      = mlResult?.risk_score ?? "unknown";
+
+  const fallbackNote = "⚠️ FALLBACK MODE — AI explanation unavailable. Groq service was unreachable. Showing deterministic summary only.";
+
+  const sellerFallback = language === "English"
+    ? `Your loan application has been ${decisionStatus.toLowerCase()} with a final limit of Rs. ${finalLoanLimit}. Our AI agent is temporarily unavailable, so we are showing a system-generated summary. Your risk class is ${riskClass} with a score of ${riskScore}. Please try again shortly for a detailed AI explanation in your preferred language.`
+    : `Your loan evaluation is complete. Status: ${decisionStatus}. Limit: Rs. ${finalLoanLimit}. Risk: ${riskClass}. AI explanation temporarily unavailable — please retry for a full response in ${language}. (${fallbackNote})`;
 
   return {
-    seller_message: `${lenderMessage} (${language})`,
+    seller_message: sellerFallback,
     auditor_trail:
-      `Fallback path activated — Groq was unavailable. ` +
-      `Risk class: ${mlResult?.risk_class ?? "unknown"}. ` +
-      `Risk score: ${mlResult?.risk_score ?? "unknown"}. ` +
-      `Final loan limit: ₹${finalLoanLimit}. Decision: ${decisionStatus}.`,
+      `[FALLBACK PATH ACTIVATED — Groq LLM was unavailable at evaluation time] ` +
+      `Seller ${sellerId} was evaluated through the deterministic pipeline. ` +
+      `Risk class: ${riskClass}. Risk score: ${riskScore}/100. ` +
+      `ML loan limit: Rs. ${mlResult?.loan_limit ?? 0}. ` +
+      `Rules Engine final limit: Rs. ${finalLoanLimit}. ` +
+      `Decision status: ${decisionStatus}. ` +
+      `Human review required: ${rulesResult?.requires_human_review ?? false}. ` +
+      `No AI explanation was generated — retry when Groq is available.`,
     improvement_plan: [
-      "Maintain strong order health and delivery performance.",
-      "Reduce return-to-origin issues to improve your profile.",
-      "Continue building customer trust through consistent service quality.",
+      "Maintain strong order health — aim for dispatch SLA above 95%.",
+      "Reduce return-to-origin (RTO) rate below 10% to improve risk profile.",
+      "Build customer trust through consistent ratings above 4.0.",
+      "Grow your monthly sales steadily over the next 3 months.",
+      "Contact Meesho support if you need help understanding your evaluation.",
     ],
+    is_fallback: true,
   };
 }
 
@@ -172,45 +183,64 @@ export function buildFallbackAgentResponse({ sellerId, mlResult, rulesResult, la
 // ---------------------------------------------------------------------------
 
 /**
- * Build a compact user prompt for Groq.
- * Keeps only what the model needs — eliminates all repetition.
+ * Build a detailed user prompt for Groq.
+ * All 5 SHAP features included. Full seller context. Detailed explanation required.
  */
 function buildCompactPrompt(ctx) {
   const { sellerId, sellerData, mlResult, rulesResult, language, conversationSummary } = ctx;
 
-  // Top 3 reasoning features only — enough context, far less tokens
-  const topFeatures = (mlResult.top_reasoning_features ?? [])
-    .slice(0, 3)
-    .map((f) => `  - ${f.feature} (${f.impact}): ${f.reason}`)
+  const allFeatures = (mlResult.top_reasoning_features ?? [])
+    .map((f, i) => `  ${i + 1}. ${f.feature} — Impact: ${f.impact} — ${f.reason}`)
     .join("\n");
 
   const historyNote = conversationSummary && conversationSummary !== "No previous conversations."
-    ? `\nPRIOR INTERACTION SUMMARY:\n${conversationSummary}`
+    ? `\nPREVIOUS INTERACTIONS:\n${conversationSummary}`
     : "";
 
-  return `Generate a JSON response with EXACTLY these three keys:
-1. seller_message  — 2-3 sentences in ${language}, friendly, mention decision and one strength
-2. auditor_trail   — 3-4 sentences in English, professional, reference risk_class/risk_score/final_loan_limit
-3. improvement_plan — array of 3 actionable strings
+  const sellerMetrics = Object.entries(sellerData || {})
+    .map(([k, v]) => `  ${k}: ${v}`)
+    .join("\n");
+
+  return `You are Meesho Pragati Agent — an AI Financial Growth Partner for Meesho sellers in Bharat.
+
+Generate a JSON response with EXACTLY these three keys:
+- seller_message  (string — detailed explanation in ${language}, minimum 4 sentences)
+- auditor_trail   (string — detailed English audit record, minimum 6 sentences)
+- improvement_plan (array of 4 to 5 specific, actionable strings)
 
 ${buildSellerPrompt(language)}
+
 ${buildAuditorPrompt()}
 
-SELLER: ${sellerId}
-LANGUAGE: ${language}
-DECISION:
-  risk_class: ${mlResult.risk_class}
-  risk_score: ${mlResult.risk_score}
-  ml_loan_limit: ₹${mlResult.loan_limit}
-  final_loan_limit: ₹${rulesResult.final_loan_limit}
-  status: ${rulesResult.decision_status}
+─── EVALUATION DATA ───────────────────────────────────────────────────────────
+SELLER ID: ${sellerId}
+RESPONSE LANGUAGE: ${language}
+
+ML MODEL OUTPUT:
+  risk_class:   ${mlResult.risk_class}
+  risk_score:   ${mlResult.risk_score} / 100
+  ml_loan_limit: Rs. ${mlResult.loan_limit}
+
+RULES ENGINE OUTPUT:
+  final_loan_limit:      Rs. ${rulesResult.final_loan_limit}
+  decision_status:       ${rulesResult.decision_status}
   requires_human_review: ${rulesResult.requires_human_review}
 
-TOP FACTORS:
-${topFeatures || "  - No factors available"}
-${historyNote}
+ALL SHAP REASONING FACTORS (explain these in your messages):
+${allFeatures || "  No factors available"}
 
-RULES: Use ONLY the values above. Never modify any number. Respond with valid JSON only.`;
+SELLER BUSINESS METRICS:
+${sellerMetrics}
+${historyNote}
+────────────────────────────────────────────────────────────────────────────────
+
+CRITICAL RULES:
+- seller_message MUST be written entirely in ${language}
+- Use ONLY the exact numbers above — never invent or modify figures
+- improvement_plan must be specific to this seller's weak metrics — not generic
+- auditor_trail must reference specific rules that fired (loan cap, young account, rejection trigger, etc.)
+- Do NOT mention SHAP, XGBoost, machine learning, or any technical system name in seller_message
+- Respond with valid JSON only — no markdown, no extra text`;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,11 +277,60 @@ export async function runAgent({
   try {
     const response   = await chatCompletion(messages);
     const rawContent = response.content;
-    return repairAndParseJson(rawContent);
+    const agentOutput = repairAndParseJson(rawContent);
+
+    return normalizeAgentOutput(agentOutput);
   } catch (error) {
     logger.warn("Groq agent fallback activated", { sellerId, language, error: error.message });
     return buildFallbackAgentResponse({ sellerId, mlResult: ctx.mlResult, rulesResult: ctx.rulesResult, language });
   }
+}
+
+function flattenToText(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map(flattenToText).filter(Boolean).join("\n");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => {
+        const body = flattenToText(nestedValue);
+        return body ? `${key}: ${body}` : key;
+      })
+      .join("\n");
+  }
+  return String(value);
+}
+
+function normalizeAgentOutput(agentOutput) {
+  const normalized = { ...agentOutput };
+
+  if (normalized.seller_message && typeof normalized.seller_message !== "string") {
+    if (typeof normalized.seller_message === "object") {
+      normalized.seller_message = Object.entries(normalized.seller_message)
+        .map(([section, content]) => {
+          const body = flattenToText(content);
+          return `${section}:\n${body}`;
+        })
+        .join("\n\n");
+    } else {
+      normalized.seller_message = String(normalized.seller_message);
+    }
+  }
+
+  if (normalized.auditor_trail && typeof normalized.auditor_trail !== "string") {
+    normalized.auditor_trail = flattenToText(normalized.auditor_trail);
+  }
+
+  if (!Array.isArray(normalized.improvement_plan)) {
+    normalized.improvement_plan = normalized.improvement_plan
+      ? [flattenToText(normalized.improvement_plan)]
+      : [];
+  }
+
+  return normalized;
 }
 
 // ---------------------------------------------------------------------------

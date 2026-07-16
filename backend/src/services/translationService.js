@@ -103,7 +103,13 @@ export async function translateText(text, targetLanguage) {
  * @returns {Promise<string>}
  */
 export async function ensureSellerLanguage(sellerMessage, language) {
-  if (!sellerMessage) return sellerMessage;
+  if (sellerMessage === null || sellerMessage === undefined) return sellerMessage;
+  if (typeof sellerMessage !== "string") {
+    sellerMessage = typeof sellerMessage === "object"
+      ? JSON.stringify(sellerMessage, null, 2)
+      : String(sellerMessage);
+  }
+
   if (language === "English") return sellerMessage;
 
   if (!looksEnglish(sellerMessage)) {

@@ -26,6 +26,24 @@ jest.unstable_mockModule("../src/services/conversationService.js", () => ({
 
 jest.unstable_mockModule("../src/services/decisionService.js", () => ({
   saveDecision: jest.fn().mockResolvedValue({}),
+  listDecisions: jest.fn().mockResolvedValue([
+    {
+      _id: { toString: () => "decision-1" },
+      seller_id: "SELL001",
+      timestamp: new Date("2026-07-15T00:00:00.000Z"),
+      risk_class: "Low",
+      risk_score: 92,
+      final_loan_limit: 80000,
+      requires_human_review: true,
+      decision_status: "Approved",
+      language: "English",
+      seller_message: "Congratulations! You are eligible.",
+      auditor_trail: "Seller meets criteria.",
+      improvement_plan: ["Maintain ratings"],
+      top_reasoning_features: [],
+      execution_time_ms: 57,
+    },
+  ]),
 }));
 
 jest.unstable_mockModule("../src/services/notificationService.js", () => ({
@@ -83,5 +101,14 @@ describe("loanController via /api/loan/evaluate", () => {
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
+  });
+
+  it("GET /api/loan/decisions returns saved decision history", async () => {
+    const res = await request(app).get("/api/loan/decisions");
+
+    expect(res.status).toBe(200);
+    expect(res.body.decisions).toHaveLength(1);
+    expect(res.body.decisions[0].seller_id).toBe("SELL001");
+    expect(res.body.decisions[0].decision.loan_limit).toBe(80000);
   });
 });

@@ -43,7 +43,7 @@ coverage/
 .docker/
 
 # ML artifacts
-ml-model/artifacts/*.pkl
+
 ml-model/artifacts/*.joblib
 ml-model/artifacts/*.h5
 !ml-model/artifacts/.gitkeep

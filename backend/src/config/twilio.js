@@ -1,31 +1,65 @@
+import twilio from "twilio";
 import { logger } from "./logger.js";
 
 /**
- * Twilio placeholder configuration — messages are queued but never sent.
+ * Twilio configuration for WhatsApp messaging.
  */
 export const twilioConfig = {
   accountSid: process.env.TWILIO_ACCOUNT_SID || "",
   authToken: process.env.TWILIO_AUTH_TOKEN || "",
-  fromNumber: process.env.TWILIO_FROM_NUMBER || "",
+  whatsappNumber:
+    process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_FROM_NUMBER || "",
 };
 
-/**
- * Build a Twilio SMS payload (placeholder — not sent).
- * @param {{ to: string, body: string }} params
- * @returns {{ to: string, from: string, body: string }}
- */
-export function buildTwilioPayload({ to, body }) {
+let twilioClient = null;
+
+export function getTwilioClient() {
+  if (twilioClient) return twilioClient;
+  const { accountSid, authToken } = twilioConfig;
+  if (!accountSid || !authToken) {
+    throw new Error("Twilio credentials are not configured");
+  }
+  twilioClient = twilio(accountSid, authToken);
+  return twilioClient;
+}
+
+export function getWhatsAppSender() {
+  const sender = twilioConfig.whatsappNumber.trim();
+  if (!sender) {
+    throw new Error("TWILIO_WHATSAPP_NUMBER is not configured");
+  }
+  return sender.startsWith("whatsapp:") ? sender : `whatsapp:${sender}`;
+}
+
+export function buildWhatsAppPayload({ toPhoneNumber, body }) {
+  const to = toPhoneNumber.startsWith("whatsapp:")
+    ? toPhoneNumber
+    : `whatsapp:${toPhoneNumber}`;
+
   return {
-    to,
-    from: twilioConfig.fromNumber || "+10000000000",
     body,
+    from: getWhatsAppSender(),
+    to,
   };
 }
 
-/**
- * Validate Twilio config (informational only in placeholder mode).
- */
+export function buildWhatsAppUrl() {
+  const whatsapp = twilioConfig.whatsappNumber.trim();
+  if (!whatsapp) {
+    throw new Error("Twilio WhatsApp number is not configured");
+  }
+  const number = whatsapp.replace(/[^0-9]/g, "");
+  return `https://wa.me/${number}`;
+}
+
 export function logTwilioConfig() {
-  const configured = Boolean(twilioConfig.accountSid && twilioConfig.authToken);
-  logger.info("Twilio placeholder mode", { configured });
+  const configured = Boolean(
+    twilioConfig.accountSid &&
+    twilioConfig.authToken &&
+    twilioConfig.whatsappNumber
+  );
+  logger.info("Twilio WhatsApp config", {
+    configured,
+    whatsappNumber: twilioConfig.whatsappNumber,
+  });
 }

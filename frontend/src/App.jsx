@@ -1,55 +1,92 @@
-import { useState } from "react";
-import Chat from "./components/Chat.jsx";
+/**
+ * App.jsx — root router for Meesho Pragati Agent.
+ * Three layout zones:
+ *   / ................. Landing page (AppLayout)
+ *   /dashboard, etc ... Admin portal (DashboardLayout)
+ *   /seller, etc ...... Seller portal (SellerLayout)
+ */
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AppProvider } from "./context/AppContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import { ApplicationProvider } from "./context/ApplicationContext";
+
+import AppLayout       from "./layouts/AppLayout";
+import DashboardLayout from "./layouts/DashboardLayout";
+import SellerLayout    from "./layouts/SellerLayout";
+
+/* ── Public landing ── */
+import HomePage      from "./pages/HomePage";
+
+/* ── Admin portal ── */
+import DashboardPage from "./pages/DashboardPage";
+import EvaluatePage  from "./pages/EvaluatePage";
+import HistoryPage   from "./pages/HistoryPage";
+import SimulatorPage from "./pages/SimulatorPage";
+import DocsPage      from "./pages/DocsPage";
+import AboutPage     from "./pages/AboutPage";
+import SettingsPage  from "./pages/SettingsPage";
+import CreateSellerPage from "./pages/CreateSellerPage";
+
+/* ── Seller portal ── */
+import SellerDashboard   from "./pages/seller/SellerDashboard";
+import SellerApply       from "./pages/seller/SellerApply";
+import SellerCoach       from "./pages/seller/SellerCoach";
+import SellerHistory     from "./pages/seller/SellerHistory";
+import SellerInsights    from "./pages/seller/SellerInsights";
+import SellerProfile     from "./pages/seller/SellerProfile";
+import SellerLoanGuide   from "./pages/seller/SellerLoanGuide";
+import LoanDecisionPage  from "./pages/seller/LoanDecisionPage";
+import SellerPortal      from "./pages/seller/SellerPortal";
 
 export default function App() {
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  async function sendMessage(text) {
-    const userMessage = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMessage]);
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${API_URL}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-
-      if (!res.ok) throw new Error("Request failed");
-
-      const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response.text },
-      ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, something went wrong." },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-gradient-to-r from-meesho-pink to-meesho-purple text-white py-6 px-4 shadow-md">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-bold">Meesho Pragati Agent</h1>
-          <p className="text-sm opacity-90 mt-1">
-            AI-powered assistant for seller growth
-          </p>
-        </div>
-      </header>
+    <AppProvider>
+      <NotificationProvider>
+        <ApplicationProvider>
+          <BrowserRouter>
+        <Routes>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto p-4">
-        <Chat messages={messages} onSend={sendMessage} loading={loading} />
-      </main>
-    </div>
+          {/* ── Landing page ── */}
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/create-seller" element={<CreateSellerPage />} />
+          </Route>
+
+          {/* ── Admin / analyst portal ── */}
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/evaluate"  element={<EvaluatePage />}  />
+            <Route path="/history"   element={<HistoryPage />}   />
+            <Route path="/simulator" element={<SimulatorPage />} />
+            <Route path="/docs"      element={<DocsPage />}      />
+            <Route path="/about"     element={<AboutPage />}     />
+            <Route path="/settings"  element={<SettingsPage />}  />
+          </Route>
+
+          {/* ── Seller dashboard shell and all inner seller routes ── */}
+          <Route path="/seller" element={<SellerLayout />}>
+
+            {/* Seller dashboard sub-pages */}
+            <Route index element={<SellerDashboard />} />
+            <Route path="dashboard"    element={<SellerDashboard />}  />
+            <Route path="portal"       element={<SellerPortal />}     />
+            <Route path="apply"        element={<SellerApply />}      />
+            <Route path="loan-guide"   element={<SellerLoanGuide />}  />
+            <Route path="decision"     element={<LoanDecisionPage />} />
+            <Route path="coach"        element={<SellerCoach />}      />
+            <Route path="history"      element={<SellerHistory />}    />
+            <Route path="insights"     element={<SellerInsights />}   />
+            <Route path="profile"      element={<SellerProfile />}    />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+          </BrowserRouter>
+        </ApplicationProvider>
+      </NotificationProvider>
+    </AppProvider>
   );
 }

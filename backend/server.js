@@ -10,12 +10,17 @@ import swaggerJsdoc from "swagger-jsdoc";
 import { connectDB } from "./src/config/db.js";
 import { logger } from "./src/config/logger.js";
 import { logTwilioConfig } from "./src/config/twilio.js";
+import { retryFailedNotifications } from "./src/services/notificationService.js";
 import { validateGroqConfig } from "./src/config/groq.js";
 import { initializeAgent } from "./src/services/agentService.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 import loanRoutes from "./src/routes/loanRoutes.js";
+import sellerRoutes from "./src/routes/sellerRoutes.js";
+import sellerOnboardingRoutes from "./src/routes/sellerOnboardingRoutes.js";
 import debugRoutes from "./src/routes/debugRoutes.js";
+import coachRoutes from "./src/routes/coachRoutes.js";
+import twilioRoutes from "./src/routes/twilioRoutes.js";
 import { SERVICE_NAME, SERVICE_VERSION } from "./src/utils/constants.js";
 
 const PORT = process.env.PORT || 3001;
@@ -70,6 +75,10 @@ export function createApp() {
 
   app.use("/api/debug", debugRoutes);
   app.use("/api/loan", loanRoutes);
+  app.use("/api/sellers", sellerRoutes);
+  app.use("/api/seller", sellerOnboardingRoutes);
+  app.use("/api/twilio", twilioRoutes);
+  app.use("/api/coach", coachRoutes);
   app.use(errorHandler);
 
   return app;
@@ -95,6 +104,21 @@ async function startServer() {
         docs: `http://localhost:${PORT}/api-docs`,
       });
     });
+
+    const retryIntervalMs = Number(process.env.WHATSAPP_RETRY_INTERVAL_MS) || 60_000;
+    const retryLimit = Number(process.env.WHATSAPP_RETRY_MAX_ATTEMPTS) || 10;
+
+    setInterval(async () => {
+      try {
+        logger.info("Retrying failed WhatsApp notifications", { retryIntervalMs, retryLimit });
+        await retryFailedNotifications({ maxAttempts: retryLimit });
+      } catch (retryError) {
+        logger.error("Failed while retrying WhatsApp notifications", {
+          error: retryError?.message,
+          stack: retryError?.stack,
+        });
+      }
+    }, retryIntervalMs);
   } catch (error) {
     logger.error("Server startup failed", { error: error.message });
     process.exit(1);
