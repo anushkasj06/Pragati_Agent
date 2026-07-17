@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
 export default function BackendOfflineBanner() {
   const { pingBackend } = useApp();
   return (
@@ -15,7 +17,7 @@ export default function BackendOfflineBanner() {
           <WifiOff className="w-4 h-4 text-red-500 flex-shrink-0" />
           <p className="text-red-700 text-sm">
             Cannot connect to backend on{" "}
-            <code className="font-mono text-xs bg-red-100 px-1.5 py-0.5 rounded">localhost:3001</code>.
+            <code className="font-mono text-xs bg-red-100 px-1.5 py-0.5 rounded">{API_BASE_URL}</code>.
             Please start the server.
           </p>
         </div>

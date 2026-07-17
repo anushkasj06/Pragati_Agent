@@ -8,6 +8,7 @@ import { GitBranch, ExternalLink, ChevronDown, ChevronRight,
 
 const C = { purple:"#6F2DBD", p2:"#8B5CF6", orange:"#F59E0B", green:"#22C55E",
   text1:"#1A1A2E", text2:"#4B5563", muted:"#9CA3AF", border:"#E9E5F5", card:"#FFFFFF" };
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:3001").replace(/\/$/, "");
 const card = (x={}) => ({ background:C.card, border:`1px solid ${C.border}`,
   borderRadius:16, boxShadow:"0 2px 16px rgba(111,45,189,0.07)", ...x });
 const fu = (d=0) => ({ initial:{opacity:0,y:20}, animate:{opacity:1,y:0},
@@ -86,7 +87,7 @@ export default function DocsPage() {
               <p style={{ fontSize:13,color:C.muted,margin:"2px 0 0" }}>System design, pipeline, and API reference</p>
             </div>
           </div>
-          <a href="http://localhost:3001/api-docs" target="_blank" rel="noreferrer"
+          <a href={`${API_BASE_URL}/api-docs`} target="_blank" rel="noreferrer"
             style={{ display:"inline-flex",alignItems:"center",gap:7,padding:"9px 18px",
               borderRadius:10,fontSize:13,fontWeight:600,color:"#fff",
               background:"linear-gradient(135deg,#6F2DBD,#8B5CF6)",textDecoration:"none",
@@ -204,7 +205,7 @@ export default function DocsPage() {
           <span style={{ fontSize:12,color:C.muted }}>Base URL:</span>
           <code style={{ fontSize:12,fontFamily:"monospace",color:C.purple,
             background:"rgba(111,45,189,0.08)",padding:"2px 10px",borderRadius:6 }}>
-            http://localhost:3001
+            {API_BASE_URL}
           </code>
           <span style={{ fontSize:12,color:C.muted }}>ML Service:</span>
           <code style={{ fontSize:12,fontFamily:"monospace",color:C.p2,

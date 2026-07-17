@@ -95,7 +95,7 @@ export default function SettingsPage() {
   const [fallback, setFallback] = useState(true);
   const [audit,    setAudit]    = useState(true);
   const [rateLimit,setRateLimit]= useState(true);
-  const [apiUrl,   setApiUrl]   = useState("http://localhost:3001");
+  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || "http://localhost:3001");
   const [mlUrl,    setMlUrl]    = useState("http://localhost:5001");
   const [saved,    setSaved]    = useState(false);
   const [beStatus, setBeStatus] = useState(null);
@@ -137,7 +137,7 @@ export default function SettingsPage() {
           <Wifi style={{ width:18,height:18,color:C.purple }} />
           <span style={{ fontSize:15,fontWeight:700,color:C.text1 }}>System Connectivity</span>
         </div>
-        <StatusRow label="Express Backend (localhost:3001)" online={beStatus} onCheck={checkBackend} checking={checking} />
+        <StatusRow label="Express Backend" online={beStatus} onCheck={checkBackend} checking={checking} />
         <StatusRow label="FastAPI ML Service (localhost:5001)" online={null} />
         <StatusRow label="Groq AI (api.groq.com)" online={null} />
         <StatusRow label="MongoDB Atlas" online={null} />

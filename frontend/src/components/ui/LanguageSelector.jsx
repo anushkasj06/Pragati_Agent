@@ -28,7 +28,7 @@ export function LanguageSelector({ value, onChange, className = "", buttonClassN
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2.5 px-4 py-2.5 bg-surface-card border border-surface-border rounded-2xl text-white hover:border-brand-primary/50 transition-all duration-200 w-full ${buttonClassName}`}
+        className={`flex items-center gap-2.5 px-4 py-2.5 bg-surface-card border border-surface-border rounded-2xl text-black hover:border-brand-primary/50 transition-all duration-200 w-full ${buttonClassName}`}
       >
         <Globe className="w-4 h-4 text-brand-secondary flex-shrink-0" />
         <span className="text-sm font-medium flex-1 text-left">
@@ -38,7 +38,7 @@ export function LanguageSelector({ value, onChange, className = "", buttonClassN
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="w-4 h-4 text-white/40" />
+          <ChevronDown className="w-4 h-4 text-black/40" />
         </motion.div>
       </button>
 
