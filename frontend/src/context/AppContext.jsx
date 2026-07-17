@@ -3,7 +3,7 @@
  * Stores the latest evaluation result, backend health, and UI state.
  */
 
-import { createContext, useContext, useReducer, useCallback } from "react";
+import { createContext, useContext, useReducer, useCallback, useRef } from "react";
 import { checkHealth, evaluateLoan } from "../services/api";
 import { DEFAULT_SELLER } from "../utils/sellerData";
 
@@ -101,14 +101,26 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const backendCheckRef = useRef(null);
 
   /** Check backend health once on mount */
   const pingBackend = useCallback(async () => {
+    if (backendCheckRef.current) return backendCheckRef.current;
+
+    const checkPromise = (async () => {
+      try {
+        await checkHealth();
+        dispatch({ type: "SET_BACKEND_STATUS", payload: true });
+      } catch {
+        dispatch({ type: "SET_BACKEND_STATUS", payload: false });
+      }
+    })();
+
+    backendCheckRef.current = checkPromise;
     try {
-      await checkHealth();
-      dispatch({ type: "SET_BACKEND_STATUS", payload: true });
-    } catch {
-      dispatch({ type: "SET_BACKEND_STATUS", payload: false });
+      await checkPromise;
+    } finally {
+      backendCheckRef.current = null;
     }
   }, []);
 

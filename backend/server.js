@@ -10,7 +10,6 @@ import swaggerJsdoc from "swagger-jsdoc";
 import { connectDB } from "./src/config/db.js";
 import { logger } from "./src/config/logger.js";
 import { logTwilioConfig } from "./src/config/twilio.js";
-import { retryFailedNotifications } from "./src/services/notificationService.js";
 import { validateGroqConfig } from "./src/config/groq.js";
 import { initializeAgent } from "./src/services/agentService.js";
 import { requestLogger } from "./src/middleware/requestLogger.js";
@@ -104,21 +103,6 @@ async function startServer() {
         docs: `http://localhost:${PORT}/api-docs`,
       });
     });
-
-    const retryIntervalMs = Number(process.env.WHATSAPP_RETRY_INTERVAL_MS) || 60_000;
-    const retryLimit = Number(process.env.WHATSAPP_RETRY_MAX_ATTEMPTS) || 10;
-
-    setInterval(async () => {
-      try {
-        logger.info("Retrying failed WhatsApp notifications", { retryIntervalMs, retryLimit });
-        await retryFailedNotifications({ maxAttempts: retryLimit });
-      } catch (retryError) {
-        logger.error("Failed while retrying WhatsApp notifications", {
-          error: retryError?.message,
-          stack: retryError?.stack,
-        });
-      }
-    }, retryIntervalMs);
   } catch (error) {
     logger.error("Server startup failed", { error: error.message });
     process.exit(1);

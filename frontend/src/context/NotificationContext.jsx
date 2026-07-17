@@ -2,7 +2,7 @@
  * NotificationContext — global notification store.
  * Persisted to localStorage. Used by seller navbar bell and admin dashboard.
  */
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { getSellerNotifications } from "../services/api";
 
 const NotificationContext = createContext(null);
@@ -30,15 +30,22 @@ function saveNotifEnabled(value) {
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState(loadNotifs);
   const [notificationsEnabled, setNotificationsEnabled] = useState(loadNotifEnabled);
+  const fetchInFlightRef = useRef(null);
+  const lastFetchedSellerIdRef = useRef(null);
 
   useEffect(() => { saveNotifs(notifications); }, [notifications]);
   useEffect(() => { saveNotifEnabled(notificationsEnabled); }, [notificationsEnabled]);
 
   useEffect(() => {
-    const sellerId = localStorage.getItem("pragati:selectedSeller") ? JSON.parse(localStorage.getItem("pragati:selectedSeller"))?.id : null;
+    const selectedSeller = localStorage.getItem("pragati:selectedSeller");
+    const sellerId = selectedSeller ? JSON.parse(selectedSeller)?.id : null;
     if (!sellerId || !notificationsEnabled) return;
-    getSellerNotifications({ seller_id: sellerId })
+
+    if (fetchInFlightRef.current || lastFetchedSellerIdRef.current === sellerId) return;
+
+    fetchInFlightRef.current = getSellerNotifications({ seller_id: sellerId })
       .then((items) => {
+        lastFetchedSellerIdRef.current = sellerId;
         if (items?.length) {
           setNotifications((prev) => {
             const merged = [...items.map((item) => ({ ...item, timestamp: item.timestamp || new Date().toISOString(), read: item.read ?? false }))];
@@ -47,7 +54,10 @@ export function NotificationProvider({ children }) {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        fetchInFlightRef.current = null;
+      });
   }, [notificationsEnabled]);
 
   const addNotification = useCallback((notif) => {
