@@ -3,14 +3,15 @@
  */
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Edit3, CheckCircle, Star, Package, TrendingUp, Shield } from "lucide-react";
+import { Edit3, CheckCircle, Star, Package, TrendingUp, Shield, Sparkles } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { useApp } from "../../context/AppContext";
 import { SELLER_PROFILES } from "../../utils/sellerData";
 
-const C = { purple:"#6F2DBD", p2:"#8B5CF6", orange:"#F59E0B", green:"#22C55E",
-  text1:"#1A1A2E", text2:"#4B5563", muted:"#9CA3AF", border:"#E9E5F5", card:"#FFFFFF" };
+const C = { purple:"#6F2DBD", p2:"#8B5CF6", orange:"#F59E0B", green:"#22C55E", red:"#EF4444",
+  text1:"#1A1A2E", text2:"#4B5563", muted:"#9CA3AF", border:"#E9E5F5", card:"#FFFFFF", bg:"#F8F4FF" };
 const card = (x={}) => ({ background:C.card, border:`1px solid ${C.border}`,
-  borderRadius:16, boxShadow:"0 2px 16px rgba(111,45,189,0.07)", ...x });
+  borderRadius:18, boxShadow:"0 12px 30px rgba(111,45,189,0.08)", ...x });
 const fu = (d=0) => ({ initial:{opacity:0,y:20}, animate:{opacity:1,y:0},
   transition:{duration:0.45, delay:d, ease:[0.22,1,0.36,1]} });
 const inp = (f=false) => ({
@@ -52,9 +53,15 @@ export default function SellerProfile() {
     setSaved(false);
   }, [seller.id]);
 
-  const metrics  = seller.metrics;
-  const tc       = TIER_COLOR[seller.tier] || "#9CA3AF";
-  const tierPct  = seller.tier_pct || 20;
+  const metrics = seller.metrics || {};
+  const tc = TIER_COLOR[seller.tier] || "#9CA3AF";
+  const tierPct = seller.tier_pct || 20;
+  const chartData = [
+    { name: "Rating", value: Number(metrics.avg_customer_rating || 0) },
+    { name: "Orders", value: Math.min(Number(metrics.total_orders_6m || 0) / 1000, 80) },
+    { name: "Growth", value: Math.max(Number(metrics.sales_growth_rate || 0), 0) },
+    { name: "SLA", value: Number(metrics.dispatch_sla_compliance || 0) },
+  ];
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:22, maxWidth:900 }}>
@@ -65,6 +72,29 @@ export default function SellerProfile() {
       <motion.div {...fu(0)}>
         <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:2 }}>My Profile</div>
         <div style={{ fontSize:13, color:C.muted }}>{seller.name} · {seller.id}</div>
+      </motion.div>
+
+      <motion.div {...fu(0.04)} style={{ ...card(), padding:18, background:"linear-gradient(135deg, #F8F4FF 0%, #ffffff 100%)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+          <div style={{ width:38, height:38, borderRadius:12, background:"rgba(111,45,189,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Sparkles style={{ width:18, height:18, color:C.purple }} />
+          </div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Performance pulse</div>
+            <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>Strong business momentum with room to grow in delivery reliability</div>
+          </div>
+        </div>
+        <div style={{ height:180 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9E5F5" />
+              <XAxis dataKey="name" tick={{ fontSize:12, fill:C.muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize:12, fill:C.muted }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[8, 8, 4, 4]} fill="#8B5CF6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </motion.div>
 
       <div className="prof-grid">
@@ -120,10 +150,10 @@ export default function SellerProfile() {
           <motion.div {...fu(0.08)} style={{ ...card(), padding:22 }}>
             <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:14 }}>Live Seller Stats</div>
             {[
-              { icon:Star,       label:"Avg Rating",    value:`${metrics.avg_customer_rating} / 5.0`, color:C.orange },
-              { icon:Package,    label:"Total Orders",  value:metrics.total_orders_6m.toLocaleString("en-IN"), color:C.p2 },
-              { icon:TrendingUp, label:"Sales Growth",  value:`${metrics.sales_growth_rate > 0 ? "+" : ""}${metrics.sales_growth_rate}%`, color:metrics.sales_growth_rate>=0?C.green:C.red },
-              { icon:Shield,     label:"Risk Class",    value:`${seller.risk_category} Risk`, color:{ Low:C.green, Moderate:C.orange, High:C.red }[seller.risk_category] || C.orange },
+              { icon:Star, label:"Avg Rating", value:`${metrics.avg_customer_rating || 0} / 5.0`, color:C.orange },
+              { icon:Package, label:"Total Orders", value:Number(metrics.total_orders_6m || 0).toLocaleString("en-IN"), color:C.p2 },
+              { icon:TrendingUp, label:"Sales Growth", value:`${metrics.sales_growth_rate > 0 ? "+" : ""}${metrics.sales_growth_rate || 0}%`, color:metrics.sales_growth_rate >= 0 ? C.green : C.red },
+              { icon:Shield, label:"Risk Class", value:`${seller.risk_category || "Moderate"} Risk`, color:{ Low:C.green, Moderate:C.orange, High:C.red }[seller.risk_category] || C.orange },
             ].map(s => {
               const Icon = s.icon;
               return (

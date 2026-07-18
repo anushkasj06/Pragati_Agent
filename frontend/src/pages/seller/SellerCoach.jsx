@@ -13,8 +13,8 @@
  * - Meesho Pragati platform knowledge
  */
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, User, RefreshCw, Lightbulb, Loader2, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { Send, Sparkles, User, Lightbulb, Loader2, TrendingUp, ShieldCheck, MessageSquareQuote, RefreshCw, AlertCircle } from "lucide-react";
 import axios from "axios";
 import { useApp } from "../../context/AppContext";
 import { SELLER_PROFILES } from "../../utils/sellerData";

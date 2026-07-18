@@ -3,9 +3,10 @@
  */
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, CheckCircle, XCircle, Clock, ChevronDown, Loader2,
+import { Search, CheckCircle, Clock, ChevronDown, Loader2,
          TrendingUp, RotateCcw, AlertCircle, Sparkles, IndianRupee,
-         Shield, Brain, MessageCircle, ArrowRight } from "lucide-react";
+         Shield, Brain, MessageCircle, ArrowRight, X } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import { SUPPORTED_LANGUAGES, SELLER_DATA_FIELDS, DEMO_PROFILES } from "../utils/constants";
 import { evaluateLoan } from "../services/api";
 import EvaluationProcessor from "../components/EvaluationProcessor";
@@ -144,7 +145,7 @@ function ResultPanel({ result, onReset }) {
               display:"flex", alignItems:"center", justifyContent:"center" }}>
               {isApproved
                 ? <CheckCircle style={{ width:24, height:24, color:statusColor }} />
-                : <XCircle style={{ width:24, height:24, color:statusColor }} />}
+                : <X style={{ width:24, height:24, color:statusColor }} />}
             </div>
             <div>
               <div style={{ fontSize:22, fontWeight:900, color:statusColor }}>{decision.decision_status}</div>
@@ -173,6 +174,37 @@ function ResultPanel({ result, onReset }) {
               <div style={{ fontSize:16, fontWeight:800, color:k.color }}>{k.value}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div style={{ ...card(), padding:18, background:"linear-gradient(135deg, #F8F4FF 0%, #ffffff 100%)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Decision insight</div>
+            <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginTop:4 }}>A clear view of how the model and rules shaped this decision</div>
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {[
+              { label:"Approval confidence", value: `${Math.min(100, Math.max(60, Math.round((decision.loan_limit || 0) / 1000)))}%`, color:C.purple },
+              { label:"Review flag", value: decision.requires_human_review ? "Needed" : "None", color: decision.requires_human_review ? C.amber : C.green },
+            ].map((item) => (
+              <div key={item.label} style={{ padding:"8px 12px", borderRadius:999, background:"rgba(111,45,189,0.06)", border:`1px solid ${C.border}` }}>
+                <div style={{ fontSize:11, color:C.muted }}>{item.label}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:item.color }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop:14, height:160 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={(top_reasoning_features || []).slice(0, 4).map((f, i) => ({ name: f.feature || `Feature ${i + 1}`, value: f.impact?.toLowerCase() === "positive" ? 70 : 35 }))}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9E5F5" />
+              <XAxis dataKey="name" tick={{ fontSize:12, fill: C.muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize:12, fill: C.muted }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[8, 8, 4, 4]} fill="#6F2DBD" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

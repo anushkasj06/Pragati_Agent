@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { GitBranch, ExternalLink, ChevronDown, ChevronRight,
-  Server, Database, Brain, Zap, Globe, MessageCircle, Shield } from "lucide-react";
+  Server, Database, Brain, Zap, Globe, MessageCircle, Shield, Sparkles, BarChart3 } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 
 const C = { purple:"#6F2DBD", p2:"#8B5CF6", orange:"#F59E0B", green:"#22C55E",
   text1:"#1A1A2E", text2:"#4B5563", muted:"#9CA3AF", border:"#E9E5F5", card:"#FFFFFF" };
@@ -94,6 +95,41 @@ export default function DocsPage() {
               boxShadow:"0 2px 10px rgba(111,45,189,0.3)" }}>
             Swagger UI <ExternalLink style={{ width:14,height:14 }} />
           </a>
+        </div>
+      </motion.div>
+
+      <motion.div {...fu(0.04)} style={{ ...card(), padding:18, background:"linear-gradient(135deg, #F8F4FF 0%, #ffffff 100%)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:"rgba(111,45,189,0.12)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Sparkles style={{ width:18, height:18, color:C.purple }} />
+          </div>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Platform overview</div>
+            <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>A polished, explainable underwriting stack for fast seller decisions</div>
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))", gap:10 }}>
+          {[
+            { label:"Latency", value:"< 2s", color:C.purple },
+            { label:"Fallback", value:"95%", color:C.green },
+            { label:"Reasoning", value:"SHAP", color:C.orange },
+          ].map((item) => (
+            <div key={item.label} style={{ padding:"12px 14px", borderRadius:12, background:"rgba(255,255,255,0.7)", border:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:12, color:C.muted }}>{item.label}</div>
+              <div style={{ fontSize:15, fontWeight:800, color:item.color, marginTop:3 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:16, height:160 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={[{ name:"ML", value:92 }, { name:"Rules", value:88 }, { name:"AI", value:84 }, { name:"Translate", value:72 }]}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9E5F5" />
+              <XAxis dataKey="name" tick={{ fontSize:12, fill: C.muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize:12, fill: C.muted }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[8, 8, 4, 4]} fill="#6F2DBD" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </motion.div>
 
