@@ -2,6 +2,20 @@
 
 ![Build](https://img.shields.io/badge/Status-Hackathon%20Demo-blue) ![Node](https://img.shields.io/badge/Node.js-22%2B-green) ![Python](https://img.shields.io/badge/Python-3.11%2B-blue) ![MongoDB](https://img.shields.io/badge/MongoDB-Hosted%20or%20Local-brightgreen) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+<p align="center">
+  <a href="https://pragati-agent.vercel.app" target="_blank">
+    <img src="screenshot/Screenshot 2026-07-18 231653.png" alt="Meesho Pragati Agent homepage" width="1000" />
+  </a>
+</p>
+
+<p align="center">
+  <strong>Live demo:</strong>
+  <a href="https://pragati-agent.vercel.app" target="_blank">https://pragati-agent.vercel.app</a>
+  &nbsp;|&nbsp;
+  <strong>Demo video placeholder:</strong>
+  <code>screenshot/video/Meesho-Pragati-Agent-Demo.mp4</code>
+</p>
+
 ## 1. Project Introduction
 
 ### Meesho Pragati Agent
@@ -48,14 +62,14 @@ Meesho Pragati Agent acts as an AI Financial Growth Partner for sellers. Instead
 
 | Purpose | Link |
 |---|---|
-| Main Project URL | Pending / Add your deployed URL |
-| Frontend (Vercel) | Pending / Add your deployed URL |
-| Backend (Render) | Pending / Add your deployed URL |
-| ML Model Deployment | Pending / Add your deployed URL |
+| Main Project URL |https://pragati-agent.vercel.app|
+| Frontend (Vercel) |https://pragati-agent.vercel.app|
+| Backend (Render) | https://pragati-backend-5xq8.onrender.com|
+| ML Model Deployment |https://pragati-ml-model.onrender.com |
 | Swagger / API Docs | Pending / Add your deployed URL |
-| GitHub Repository | https://github.com/your-org/meesho-pragati-agent |
+| GitHub Repository | https://github.com/anushkasj06/Pragati_Agent |
 | Demo Video | Pending / Add your video link |
-| Presentation | Pending / Add your PPT or PDF link |
+| Presentation | https://drive.google.com/file/d/1ORgfjPvHIERGya9hLfV6pp5P0FQwRdaV/view?usp=drive_link |
 
 > Replace the placeholders above with your real deployment URLs once they are live.
 
@@ -95,7 +109,7 @@ npm run dev
 
 The frontend will typically run at:
 
-- http://localhost:5173
+- http://localhost:3000
 
 If you want a production build:
 
