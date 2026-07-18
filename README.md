@@ -343,6 +343,51 @@ If you deploy to Render or Vercel, set the following values:
 
 ---
 
+## Open-Source Attribution
+
+The project relies on a number of open-source libraries and services. Below is a curated list with versions (as found in the repository manifests), licenses, role in the project, and a source link. Verify license terms before redistribution or commercial use.
+
+| Library / Tool | Version (manifest) | License | Role in this project | Source |
+|---|---:|---|---|---|
+| React | ^18.3.1 (frontend/package.json) | MIT | Frontend UI library | https://react.dev/ |
+| Vite | ^6.0.6 (dev) | MIT | Frontend build tool | https://vitejs.dev/ |
+| Tailwind CSS | ^3.4.17 (dev) | MIT | Styling utility framework | https://tailwindcss.com/ |
+| Node.js | >=22.0.0 (backend/package.json engines) | MIT | Backend runtime | https://nodejs.org/ |
+| Express | ^4.21.2 | MIT | Backend HTTP server / REST API | https://expressjs.com/ |
+| MongoDB | (connection) | Server Side Public License (SSPL) | Database | https://mongodb.com/ |
+| Mongoose | ^8.9.3 | MIT | MongoDB ODM | https://mongoosejs.com/ |
+| FastAPI | fastapi==0.115.6 | MIT | ML model inference API | https://fastapi.tiangolo.com/ |
+| XGBoost | xgboost==2.1.3 | Apache-2.0 | Loan risk prediction models | https://xgboost.ai/ |
+| SHAP | shap==0.46.0 | MIT | Explainable AI (feature attributions) | https://shap.readthedocs.io/ |
+| scikit-learn | scikit-learn==1.6.0 | BSD-3-Clause | ML utilities & evaluation | https://scikit-learn.org/ |
+| LangChain / @langchain/core | ^0.3.11 / ^0.3.26 | MIT | Agent orchestration & tools | https://github.com/langchain-ai/langchain |
+| Groq API | N/A (external) | Commercial API | LLM reasoning provider | https://console.groq.com/ |
+| @google-cloud/translate | ^8.5.0 | Apache-2.0 | Google Cloud Translation client | https://cloud.google.com/translate |
+| Twilio (twilio) | ^6.0.2 | MIT | WhatsApp messaging integration | https://www.twilio.com/whatsapp |
+| axios | ^1.7.9 (backend) / ^1.18.1 (frontend) | MIT | HTTP client | https://github.com/axios/axios |
+| compression | ^1.7.5 | MIT | HTTP compression middleware | https://github.com/expressjs/compression |
+| cors | ^2.8.5 | MIT | CORS middleware | https://github.com/expressjs/cors |
+| dotenv | ^16.4.7 | BSD-2-Clause | Environment variable loading | https://github.com/motdotla/dotenv |
+| express-rate-limit | ^7.5.0 | MIT | Rate limiting | https://github.com/nfriedly/express-rate-limit |
+| helmet | ^8.0.0 | MIT | Security headers | https://helmetjs.github.io/ |
+| multer | ^1.4.5-lts.1 | MIT | Multipart form / file uploads | https://github.com/expressjs/multer |
+| swagger-jsdoc / swagger-ui-express | ^6.2.8 / ^5.0.1 | MIT | Auto API docs | https://swagger.io/ |
+| winston | ^3.17.0 | MIT | Logging | https://github.com/winstonjs/winston |
+| zod | ^3.24.1 | MIT | Runtime schema validation | https://github.com/colinhacks/zod |
+| jest / supertest | ^29.7.0 / ^7.0.0 (dev) | MIT | Testing & HTTP assertions | https://jestjs.io/ , https://github.com/visionmedia/supertest |
+| framer-motion | ^12.42.2 | MIT | UI animations | https://www.framer.com/motion/ |
+| lucide-react | ^1.24.0 | MIT | Icon set | https://lucide.dev/ |
+| react-hook-form | ^7.81.0 | MIT | Form handling | https://react-hook-form.com/ |
+| react-hot-toast | ^2.6.0 | MIT | Toast notifications | https://github.com/timolins/react-hot-toast |
+| react-router-dom | ^7.18.1 | MIT | Client routing | https://reactrouter.com/ |
+| recharts | ^3.9.2 | MIT | Charts & visualizations | https://recharts.org/ |
+| fastapi / uvicorn | fastapi==0.115.6 / uvicorn[standard]==0.34.0 | MIT / BSD | ML server and ASGI runner | https://fastapi.tiangolo.com/ , https://www.uvicorn.org/ |
+| pandas / numpy / matplotlib / joblib | pandas==2.2.3 / numpy==2.2.1 / matplotlib==3.10.0 / joblib==1.4.2 | BSD / BSD / Matplotlib license / BSD | Data processing, plotting, and model persistence | https://pandas.pydata.org/ , https://numpy.org/ , https://matplotlib.org/ , https://joblib.readthedocs.io/ |
+
+> Note: License fields are taken from typical upstream project licenses. Verify license obligations when redistributing or modifying dependencies for commercial use.
+
+---
+
 ## 7. Project Documentation
 
 The repository already contains important supporting documents and architecture assets.
