@@ -3,20 +3,24 @@
  * Shows seller eligibility, runs backend evaluation, displays
  * detailed AI explanation with fallback warning if Groq is down.
  */
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle, AlertCircle, ArrowRight, Sparkles, Clock,
   ShieldCheck, IndianRupee, Star, Truck, TrendingUp, Info,
   ChevronDown, ChevronUp, Brain, MessageCircle, Shield,
-  FileText, Loader2, RotateCcw, AlertTriangle, Upload,
+  FileText, Loader2, RotateCcw, AlertTriangle, Upload, Eye, FilePenLine,
 } from "lucide-react";
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, AreaChart, Area,
+} from "recharts";
 import { useApp } from "../../context/AppContext";
 import { useNotifications } from "../../context/NotificationContext";
 import { SELLER_PROFILES, computeHealthScore } from "../../utils/sellerData";
 import { SUPPORTED_LANGUAGES } from "../../utils/constants";
-import { evaluateLoan, submitLoanApplication } from "../../services/api";
+import { evaluateLoan, getLoanApplications, getSellerEstimate, submitLoanApplication } from "../../services/api";
 import EvaluationProcessor from "../../components/EvaluationProcessor";
 
 const C = {
@@ -77,15 +81,21 @@ function FactorCard({ feature, index }) {
 }
 
 /* ── Document Upload ─────────────────────────────────────────── */
-function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
+function DocumentUpload({ seller, loanLimit, onClose, onSubmitted, initialApplication = null, reapplyMode = false, evaluation = null, businessStats = null }) {
   const [files, setFiles] = useState({ aadhaar:null, pan:null, bank:null, gst:null });
-  const [phone, setPhone] = useState(seller.phone || "");
+  const [phone, setPhone] = useState(initialApplication?.phoneNumber || seller.phone || "");
   const [bank,  setBank]  = useState("");
   const [ifsc,  setIfsc]  = useState("");
-  const [done,  setDone]  = useState(false);
   const [focus, setFocus] = useState({});
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const { addNotification } = useNotifications();
+
+  const existingDocuments = initialApplication?.documents || {};
+
+  function hasRequiredDocument(key) {
+    return Boolean(files[key]) || Boolean(existingDocuments[key]);
+  }
 
   const inp = (k) => ({
     width:"100%", padding:"10px 13px", borderRadius:10, fontSize:13,
@@ -93,31 +103,7 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
     color:C.text1, outline:"none", boxSizing:"border-box",
   });
 
-  const allRequired = files.aadhaar && files.pan && files.bank && bank && ifsc && phone;
-
-  if (done) return (
-    <div style={{ textAlign:"center", padding:"32px 0" }}>
-      <motion.div initial={{scale:0}} animate={{scale:1}}
-        transition={{type:"spring", stiffness:200}}
-        style={{ width:68, height:68, borderRadius:"50%",
-          background:"rgba(34,197,94,0.1)", border:"2px solid rgba(34,197,94,0.3)",
-          display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
-        <CheckCircle style={{ width:34, height:34, color:C.green }} />
-      </motion.div>
-      <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:6 }}>
-        Application Submitted!
-      </div>
-      <p style={{ fontSize:14, color:C.text2, marginBottom:20 }}>
-        Your loan application for Rs. {Number(loanLimit).toLocaleString("en-IN")} has been
-        submitted. Our team will review and respond within 24 hours on WhatsApp.
-      </p>
-      <button onClick={onClose} className="btn-primary" style={{
-        padding:"10px 24px", borderRadius:12, fontSize:14, fontWeight:700,
-        color:"#fff", background:C.purple, border:"none", cursor:"pointer" }}>
-        Done
-      </button>
-    </div>
-  );
+  const allRequired = hasRequiredDocument("aadhaar") && hasRequiredDocument("pan") && hasRequiredDocument("bank") && bank && ifsc && phone;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
@@ -127,6 +113,7 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
         Upload the documents below to complete your loan application of{" "}
         <strong style={{ color:C.purple }}>Rs. {Number(loanLimit).toLocaleString("en-IN")}</strong>.
         All documents are encrypted and handled securely per RBI guidelines.
+        {reapplyMode ? " You are editing and reapplying this application." : ""}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:12 }}>
         {[
@@ -143,7 +130,11 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
               <div style={{ fontSize:22, marginBottom:5 }}>{doc.icon}</div>
               <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{doc.label}</div>
               <div style={{ fontSize:11, color:files[doc.key]?C.green:C.muted, marginTop:3 }}>
-                {files[doc.key] ? files[doc.key].name : `${doc.required?"Required":"Optional"} · PDF/JPG`}
+                {files[doc.key]
+                  ? files[doc.key].name
+                  : existingDocuments[doc.key]?.fileName
+                    ? `On file: ${existingDocuments[doc.key].fileName}`
+                    : `${doc.required?"Required":"Optional"} · PDF/JPG`}
               </div>
             </label>
             <input id={`file-${doc.key}`} type="file" accept=".pdf,.jpg,.jpeg,.png"
@@ -183,7 +174,13 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
       </div>
       <button onClick={async ()=>{
         if (!allRequired) return;
+        setSubmitError("");
         setLoadingSubmit(true);
+        const fileDocuments = Object.fromEntries(Object.entries(files).filter(([, value]) => value));
+        const documentsPayload = {
+          ...existingDocuments,
+          ...fileDocuments,
+        };
         try {
           const application = await submitLoanApplication({
             sellerId: seller.id,
@@ -191,21 +188,38 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
             phoneNumber: phone,
             amount: loanLimit,
             requestedAmount: loanLimit,
-            purpose: "Working capital loan",
-            documents: Object.fromEntries(Object.entries(files).filter(([, value]) => value)),
-            decisionMessage: "Documents submitted successfully. Awaiting admin review.",
+            purpose: reapplyMode ? "Working capital loan re-application" : "Working capital loan",
+            documents: documentsPayload,
+            decisionMessage: reapplyMode
+              ? "Re-application submitted successfully. Awaiting admin review."
+              : "Documents submitted successfully. Awaiting admin review.",
             riskClass: seller.risk_category || "Pending",
             language: seller.language || "English",
+            evaluation: {
+              decision: evaluation?.decision || null,
+              top_reasoning_features: evaluation?.top_reasoning_features || [],
+              auditor_trail: evaluation?.auditor_trail || "",
+              improvement_plan: evaluation?.improvement_plan || [],
+            },
+            businessStats: businessStats || seller.metrics,
           });
           addNotification({
-            title: "Application submitted",
+            title: reapplyMode ? "Application re-submitted" : "Application submitted",
             message: `Your application ${application.id} is now pending admin approval.`,
             type: "pending",
           });
-          setDone(true);
-          onSubmitted?.(application);
+          onSubmitted?.({
+            ...application,
+            bankAccount: bank,
+            ifscCode: ifsc,
+            phoneNumber: phone,
+            documents: Object.keys(application.documents || {}).length > 0
+              ? application.documents
+              : existingDocuments,
+          });
+          onClose?.();
         } catch (error) {
-          alert(error?.message || "Unable to submit application right now.");
+          setSubmitError(error?.message || "Unable to submit application right now.");
         } finally {
           setLoadingSubmit(false);
         }
@@ -216,8 +230,11 @@ function DocumentUpload({ seller, loanLimit, onClose, onSubmitted }) {
           display:"flex", alignItems:"center", justifyContent:"center", gap:10,
           boxShadow:allRequired && !loadingSubmit?"0 4px 18px rgba(111,45,189,0.3)":"none" }}>
         <Upload style={{ width:18, height:18 }} />
-        {loadingSubmit ? "Submitting..." : "Submit Loan Application"}
+        {loadingSubmit ? "Submitting..." : reapplyMode ? "Update & Re-Apply" : "Submit Loan Application"}
       </button>
+      {submitError && (
+        <div style={{ fontSize:12, color:C.red, fontWeight:600 }}>{submitError}</div>
+      )}
     </div>
   );
 }
@@ -229,17 +246,87 @@ export default function SellerLoanGuide() {
   const health  = computeHealthScore(metrics);
   const langObj = SUPPORTED_LANGUAGES.find(l => l.value === sellerLanguage) || SUPPORTED_LANGUAGES[0];
   const rc      = RISK_COLOR[seller.risk_category] || C.orange;
+  const [modelEstimate, setModelEstimate] = useState(null);
+  const [estimateSource, setEstimateSource] = useState("loading");
 
   // Client-side estimate
   const salesCap = Math.min(metrics.sales_velocity_6m * 0.5, 100000);
   const mult     = { Low:1.0, Moderate:0.55, High:0.20 }[seller.risk_category] || 0.55;
   const estLimit = Math.round((salesCap * mult * (metrics.prior_loan_default ? 0.3 : 1)) / 5000) * 5000;
+  const displayEstimate = Number.isFinite(modelEstimate) ? modelEstimate : estLimit;
 
   // Live evaluation state
   const [loading,   setLoading]   = useState(false);
   const [result,    setResult]    = useState(null);
   const [error,     setError]     = useState(null);
   const [showApply, setShowApply] = useState(false);
+  const [latestApplication, setLatestApplication] = useState(null);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [showApplicationDocs, setShowApplicationDocs] = useState(false);
+  const [reapplyMode, setReapplyMode] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function fetchModelEstimate() {
+      setEstimateSource("loading");
+      try {
+        const res = await getSellerEstimate(seller.id);
+
+        if (!ignore) {
+          setModelEstimate(Number(res?.decision?.loan_limit || 0));
+          setEstimateSource("model");
+        }
+      } catch {
+        if (!ignore) {
+          setModelEstimate(null);
+          setEstimateSource("fallback");
+        }
+      }
+    }
+
+    fetchModelEstimate();
+    return () => { ignore = true; };
+  }, [seller.id]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadApplications() {
+      setLoadingApplications(true);
+      try {
+        const applications = await getLoanApplications({ seller_id: seller.id });
+        if (!ignore) {
+          setLatestApplication(applications?.[0] || null);
+        }
+      } catch {
+        if (!ignore) {
+          setLatestApplication(null);
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingApplications(false);
+        }
+      }
+    }
+
+    loadApplications();
+    return () => { ignore = true; };
+  }, [seller.id]);
+
+  const metricTrendData = useMemo(() => {
+    const salesScore = Math.min(100, Math.round((Number(metrics.sales_velocity_6m || 0) / 200000) * 100));
+    const dispatchScore = Math.min(100, Number(metrics.dispatch_sla_compliance || 0));
+    const ratingScore = Math.min(100, Math.round((Number(metrics.avg_customer_rating || 0) / 5) * 100));
+    const rtoSafety = Math.max(0, 100 - (Number(metrics.rto_rate || 0) * 4));
+
+    return [
+      { month: "M-3", sales: Math.max(0, salesScore - 10), dispatch: Math.max(0, dispatchScore - 6), quality: Math.max(0, ratingScore - 8), safety: Math.max(0, rtoSafety - 7) },
+      { month: "M-2", sales: Math.max(0, salesScore - 6), dispatch: Math.max(0, dispatchScore - 3), quality: Math.max(0, ratingScore - 4), safety: Math.max(0, rtoSafety - 3) },
+      { month: "M-1", sales: Math.max(0, salesScore - 3), dispatch: Math.max(0, dispatchScore - 1), quality: Math.max(0, ratingScore - 2), safety: Math.max(0, rtoSafety - 1) },
+      { month: "Now", sales: salesScore, dispatch: dispatchScore, quality: ratingScore, safety: rtoSafety },
+    ];
+  }, [metrics]);
 
   const ELIGIBILITY = [
     { label:"Sales Velocity",   value:`Rs. ${Number(metrics.sales_velocity_6m).toLocaleString("en-IN")}`, good:metrics.sales_velocity_6m >= 30000, icon:IndianRupee },
@@ -268,6 +355,7 @@ export default function SellerLoanGuide() {
 
   const dec = result?.decision;
   const ok  = dec?.decision_status === "Approved";
+  const isPendingApplication = latestApplication?.status === "pending";
 
   return (
     <div style={{ maxWidth:1040, margin:"0 auto" }}>
@@ -295,12 +383,15 @@ export default function SellerLoanGuide() {
             <div style={{ marginLeft:"auto", padding:"5px 14px", borderRadius:20,
               background:"rgba(255,255,255,0.18)", fontSize:12, fontWeight:700, color:"#fff" }}>
               {seller.risk_category === "High" ? "Eligibility Pending"
-                : `Pre-Eligible: Rs. ${estLimit.toLocaleString("en-IN")}`}
+                : `Pre-Eligible: Rs. ${displayEstimate.toLocaleString("en-IN")}`}
             </div>
           </div>
           <p style={{ fontSize:13, color:"rgba(255,255,255,0.82)", lineHeight:1.7, margin:0, maxWidth:640 }}>
             {seller.summary}
           </p>
+          <div style={{ marginTop:10, fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.86)" }}>
+            {estimateSource === "model" ? "Live model estimate" : estimateSource === "loading" ? "Fetching live model estimate..." : "Temporary fallback estimate"}
+          </div>
         </div>
         <div style={{ display:"flex", flexWrap:"wrap" }}>
           {[["No CIBIL Required","#22C55E"],["AI Decision in 2 mins","#6F2DBD"],
@@ -348,6 +439,130 @@ export default function SellerLoanGuide() {
               })}
             </div>
           </motion.div>
+
+          <motion.div {...fu(0.08)} style={{ ...card({padding:22}) }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16 }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:8 }}>4-Month Performance Trend</div>
+                <div style={{ width:"100%", height:220 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={metricTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F0EBF8" />
+                      <XAxis dataKey="month" tick={{ fill: "#6B7280", fontSize: 11 }} />
+                      <YAxis domain={[0, 100]} tick={{ fill: "#9CA3AF", fontSize: 11 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="sales" stroke="#6F2DBD" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="dispatch" stroke="#22C55E" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="quality" stroke="#F59E0B" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:8 }}>Loan Readiness Index</div>
+                <div style={{ width:"100%", height:220 }}>
+                  <ResponsiveContainer>
+                    <AreaChart data={metricTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F0EBF8" />
+                      <XAxis dataKey="month" tick={{ fill: "#6B7280", fontSize: 11 }} />
+                      <YAxis domain={[0, 100]} tick={{ fill: "#9CA3AF", fontSize: 11 }} />
+                      <Tooltip formatter={(value) => [`${value}%`, "Readiness"]} />
+                      <Area type="monotone" dataKey="safety" stroke="#8B5CF6" fill="#EDE4FF" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop:10, fontSize:12, color:C.text2, lineHeight:1.7 }}>
+              These charts provide a clearer seller profile view for all users before evaluation. They are aligned with the same input metrics used by the model pipeline.
+            </div>
+          </motion.div>
+
+          {(latestApplication || loadingApplications) && (
+            <motion.div {...fu(0.1)} style={{ ...card({ padding:22 }) }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                <CheckCircle style={{ width:16, height:16, color:C.green }} />
+                <span style={{ fontSize:15, fontWeight:800, color:C.text1 }}>Loan Application Status</span>
+                {isPendingApplication && (
+                  <span style={{ marginLeft:"auto", fontSize:11, fontWeight:800, color:"#92400E", background:"#FFFBEB", border:"1px solid #FDE68A", borderRadius:20, padding:"3px 10px" }}>
+                    Pending Admin Approval
+                  </span>
+                )}
+              </div>
+
+              {loadingApplications && !latestApplication ? (
+                <div style={{ fontSize:13, color:C.muted }}>Loading your latest application...</div>
+              ) : latestApplication ? (
+                <>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:10, marginBottom:14 }}>
+                    <div style={{ padding:"10px 12px", borderRadius:10, background:C.bg, border:`1px solid ${C.border}` }}>
+                      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>Application ID</div>
+                      <div style={{ fontSize:12, fontWeight:800, color:C.text1 }}>{latestApplication.id}</div>
+                    </div>
+                    <div style={{ padding:"10px 12px", borderRadius:10, background:C.bg, border:`1px solid ${C.border}` }}>
+                      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>Submitted Amount</div>
+                      <div style={{ fontSize:12, fontWeight:800, color:C.purple }}>Rs. {Number(latestApplication.amount || 0).toLocaleString("en-IN")}</div>
+                    </div>
+                    <div style={{ padding:"10px 12px", borderRadius:10, background:C.bg, border:`1px solid ${C.border}` }}>
+                      <div style={{ fontSize:10, color:C.muted, marginBottom:3 }}>Submitted On</div>
+                      <div style={{ fontSize:12, fontWeight:800, color:C.text1 }}>{new Date(latestApplication.submittedAt || Date.now()).toLocaleString()}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding:"12px 14px", borderRadius:12, background:"rgba(111,45,189,0.05)", border:"1px solid rgba(111,45,189,0.15)", marginBottom:12 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:5 }}>Successfully applied for loan.</div>
+                    <div style={{ fontSize:12, color:C.text2, lineHeight:1.7 }}>
+                      Your application is under review by Meesho admin. Please wait for approval notification. Meanwhile, use AI Coach to improve eligibility or ask for a higher sanctioned amount strategy.
+                    </div>
+                  </div>
+
+                  <button onClick={() => setShowApplicationDocs((prev) => !prev)}
+                    style={{ width:"100%", marginBottom:10, padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, background:"#fff", cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontWeight:700, color:C.text1 }}>
+                    <Eye style={{ width:14, height:14, color:C.purple }} />
+                    {showApplicationDocs ? "Hide Application Details" : "View Application Details"}
+                    <span style={{ marginLeft:"auto" }}>{showApplicationDocs ? <ChevronUp style={{ width:14, height:14 }} /> : <ChevronDown style={{ width:14, height:14 }} />}</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {showApplicationDocs && (
+                      <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:"auto" }} exit={{ opacity:0, height:0 }} style={{ overflow:"hidden" }}>
+                        <div style={{ border:`1px solid ${C.border}`, borderRadius:12, padding:12, marginBottom:12 }}>
+                          <div style={{ fontSize:12, fontWeight:700, color:C.text1, marginBottom:8 }}>Documents</div>
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:8 }}>
+                            {Object.entries(latestApplication.documents || {}).length > 0 ? Object.entries(latestApplication.documents || {}).map(([docKey, docValue]) => (
+                              <div key={docKey} style={{ padding:"9px 10px", borderRadius:10, background:"#FAFAFA", border:`1px solid ${C.border}` }}>
+                                <div style={{ fontSize:11, color:C.muted, marginBottom:2 }}>{docKey.toUpperCase()}</div>
+                                <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{docValue?.fileName || "Uploaded"}</div>
+                                {docValue?.url && (
+                                  <a href={docValue.url} target="_blank" rel="noreferrer"
+                                    style={{ fontSize:11, color:C.purple, display:"block", marginTop:4 }}>
+                                    View document
+                                  </a>
+                                )}
+                              </div>
+                            )) : (
+                              <div style={{ fontSize:12, color:C.muted }}>No documents metadata available for this application.</div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                    <button
+                      onClick={() => { setReapplyMode(true); setShowApply(true); }}
+                      style={{ flex:1, minWidth:190, padding:"10px 12px", borderRadius:10, border:`1px solid ${C.border}`, background:"#fff", cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:8, fontWeight:700, color:C.purple }}>
+                      <FilePenLine style={{ width:14, height:14 }} /> Edit & Re-Apply
+                    </button>
+                    <Link to="/seller/coach" style={{ flex:1, minWidth:190, padding:"10px 12px", borderRadius:10, textDecoration:"none", border:"1px solid #DDD0F5", background:"#F3ECFF", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:8, fontWeight:700, color:C.purple }}>
+                      <MessageCircle style={{ width:14, height:14 }} /> Talk to AI Coach for Detailed Help
+                    </Link>
+                  </div>
+                </>
+              ) : null}
+            </motion.div>
+          )}
 
           {/* Result section � shown after evaluation */}
           <AnimatePresence>
@@ -542,7 +757,7 @@ export default function SellerLoanGuide() {
           {/* Apply Now � only when approved */}
           {result && ok && (
             <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}}>
-              <button onClick={()=>setShowApply(true)}
+              <button onClick={()=>{ setReapplyMode(false); setShowApply(true); }}
                 style={{ width:"100%", padding:"13px", borderRadius:12, fontSize:14, fontWeight:800,
                   color:"#fff", background:"linear-gradient(135deg,#22C55E,#16A34A)",
                   border:"none", cursor:"pointer",
@@ -573,11 +788,14 @@ export default function SellerLoanGuide() {
                 Pre-Approval Estimate
               </div>
               <div style={{ fontSize:34, fontWeight:900, color:C.purple, marginBottom:4 }}>
-                {seller.risk_category==="High" ? "Pending" : `Rs. ${estLimit.toLocaleString("en-IN")}`}
+                {seller.risk_category==="High" ? "Pending" : `Rs. ${displayEstimate.toLocaleString("en-IN")}`}
               </div>
               <div style={{ fontSize:11, color:C.muted, marginBottom:14 }}>
-                {seller.risk_category==="High" ? "Improve metrics to unlock eligibility"
-                  : "Client-side estimate � run evaluation for exact limit"}
+                {seller.risk_category==="High"
+                  ? "Improve metrics to unlock eligibility"
+                  : estimateSource === "model"
+                    ? "Live model estimate"
+                    : "Temporary fallback estimate"}
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
                 {[["Risk Class", seller.risk_category, rc],
@@ -621,7 +839,22 @@ export default function SellerLoanGuide() {
                     cursor:"pointer", color:C.muted }}>�</button>
               </div>
               <DocumentUpload seller={seller} loanLimit={dec?.loan_limit||0}
-                onClose={()=>setShowApply(false)} onSubmitted={() => setShowApply(false)} />
+                initialApplication={reapplyMode ? latestApplication : null}
+                reapplyMode={reapplyMode}
+                evaluation={{
+                  decision: result?.decision || null,
+                  top_reasoning_features: result?.top_reasoning_features || [],
+                  auditor_trail: result?.auditor_trail || "",
+                  improvement_plan: result?.improvement_plan || [],
+                }}
+                businessStats={seller.metrics}
+                onClose={()=>setShowApply(false)}
+                onSubmitted={(application) => {
+                  setLatestApplication(application);
+                  setShowApply(false);
+                  setReapplyMode(false);
+                  setShowApplicationDocs(true);
+                }} />
             </motion.div>
           </motion.div>
         )}

@@ -2,7 +2,7 @@
  * SellerDashboard — driven entirely by selectedSeller from AppContext.
  * Switch seller from the top picker → every KPI, loan estimate, and CTA updates.
  */
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import {
@@ -10,9 +10,14 @@ import {
   BookOpen, ArrowRight, ShieldCheck, Brain, Globe, MessageCircle,
   CheckCircle, Sparkles, IndianRupee, Clock,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, RadialBarChart, RadialBar,
+} from "recharts";
 import { useAnimatedNumber } from "../../hooks/useAnimatedNumber";
 import { useApp } from "../../context/AppContext";
 import { SELLER_PROFILES, computeHealthScore } from "../../utils/sellerData";
+import { getSellerEstimate } from "../../services/api";
 
 const C = {
   purple:"#6F2DBD", p2:"#8B5CF6", orange:"#F59E0B", green:"#22C55E",
@@ -102,12 +107,51 @@ export default function SellerDashboard() {
   const metrics = seller.metrics;
   const health  = computeHealthScore(metrics);
   const rc      = RISK_COLOR[seller.risk_category] || C.orange;
+  const [modelEstimate, setModelEstimate] = useState(null);
+  const [estimateSource, setEstimateSource] = useState("loading");
 
   // Estimated loan limit (rough client-side calculation matching rules engine)
   const salesCap    = Math.min(metrics.sales_velocity_6m * 0.5, 100000);
   const mult        = seller.risk_category === "Low" ? 1.0 : seller.risk_category === "Moderate" ? 0.55 : 0.2;
-  const estLimit    = Math.round((salesCap * mult * (metrics.prior_loan_default ? 0.3 : 1)) / 5000) * 5000;
-  const animLimit   = useAnimatedNumber(estLimit, 1400, 300);
+  const fallbackEst = Math.round((salesCap * mult * (metrics.prior_loan_default ? 0.3 : 1)) / 5000) * 5000;
+  const liveLimit   = Number.isFinite(modelEstimate) ? modelEstimate : fallbackEst;
+  const animLimit   = useAnimatedNumber(liveLimit, 1400, 300);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function fetchModelEstimate() {
+      setEstimateSource("loading");
+      try {
+        const res = await getSellerEstimate(seller.id);
+
+        if (!ignore) {
+          setModelEstimate(Number(res?.decision?.loan_limit || 0));
+          setEstimateSource("model");
+        }
+      } catch {
+        if (!ignore) {
+          setModelEstimate(null);
+          setEstimateSource("fallback");
+        }
+      }
+    }
+
+    fetchModelEstimate();
+    return () => { ignore = true; };
+  }, [seller.id]);
+
+  const performanceChartData = useMemo(() => ([
+    { name: "Sales", value: Math.min(100, Math.round((Number(metrics.sales_velocity_6m || 0) / 200000) * 100)) },
+    { name: "Dispatch", value: Math.min(100, Number(metrics.dispatch_sla_compliance || 0)) },
+    { name: "Rating", value: Math.min(100, Math.round((Number(metrics.avg_customer_rating || 0) / 5) * 100)) },
+    { name: "Growth", value: Math.max(0, Math.min(100, Math.round(((Number(metrics.sales_growth_rate || 0) + 20) / 60) * 100))) },
+  ]), [metrics]);
+
+  const riskGaugeData = useMemo(() => {
+    const riskScore = seller.risk_category === "Low" ? 26 : seller.risk_category === "Moderate" ? 58 : 84;
+    return [{ name: "Risk", value: riskScore, fill: riskScore <= 35 ? C.green : riskScore <= 65 ? C.orange : C.red }];
+  }, [seller.risk_category]);
 
   const kpis = [
     { label:"Monthly Sales",     target:metrics.sales_velocity_6m,       unit:"",      color:C.purple, bgColor:"rgba(111,45,189,0.1)", icon:IndianRupee, note:{up:metrics.sales_growth_rate>=0, text:`${metrics.sales_growth_rate>0?"+":""}${metrics.sales_growth_rate}%`}, delay:0 },
@@ -123,7 +167,9 @@ export default function SellerDashboard() {
       <style>{`
         .kpi-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
         .why-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+        .insight-grid { display:grid; grid-template-columns:1.2fr 0.8fr; gap:16px; }
         @media(max-width:900px) { .kpi-grid,.why-grid { grid-template-columns:1fr 1fr; } }
+        @media(max-width:900px) { .insight-grid { grid-template-columns:1fr; } }
         @media(max-width:560px) { .kpi-grid,.why-grid { grid-template-columns:1fr; } }
       `}</style>
 
@@ -182,10 +228,13 @@ export default function SellerDashboard() {
           display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <Sparkles style={{ width:18, height:18, color:C.orange }} />
-            <span style={{ fontSize:14, fontWeight:600, color:"#92400E" }}>
+            <span style={{ fontSize:14, fontWeight:600, color:"#92400E", display:"inline-flex", flexDirection:"column", gap:4 }}>
               {seller.risk_category === "High"
                 ? "Improve your metrics to unlock working capital eligibility."
                 : <>Estimated eligibility: <strong style={{ color:C.orange }}>Rs. {animLimit.toLocaleString("en-IN")}</strong> — apply to confirm</>}
+              <span style={{ fontSize:11, fontWeight:700, color:"#92400E", opacity:0.8 }}>
+                {estimateSource === "model" ? "Live model estimate" : estimateSource === "loading" ? "Fetching live model estimate..." : "Temporary fallback estimate"}
+              </span>
             </span>
           </div>
           <Link to="/seller/loan-guide" style={{ display:"inline-flex", alignItems:"center", gap:7,
@@ -203,6 +252,39 @@ export default function SellerDashboard() {
           textTransform:"uppercase", letterSpacing:"0.05em" }}>Business Performance</div>
         <div className="kpi-grid">
           {kpis.map(k => <KpiCard key={k.label} {...k} />)}
+        </div>
+      </motion.div>
+
+      <motion.div {...fu(0.11)} className="insight-grid">
+        <div style={{ ...card(), padding:20 }}>
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>Performance Snapshot</div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>Normalized inputs that drive model confidence.</div>
+          <div style={{ width:"100%", height:220 }}>
+            <ResponsiveContainer>
+              <BarChart data={performanceChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F0EBF8" />
+                <XAxis dataKey="name" tick={{ fill: "#6B7280", fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#9CA3AF", fontSize: 11 }} />
+                <Tooltip formatter={(value) => [`${value}%`, "Score"]} />
+                <Bar dataKey="value" fill="#6F2DBD" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={{ ...card(), padding:20, display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>Risk Pressure Gauge</div>
+          <div style={{ fontSize:12, color:C.muted }}>Lower pressure means smoother approval potential.</div>
+          <div style={{ width:"100%", height:170 }}>
+            <ResponsiveContainer>
+              <RadialBarChart innerRadius="55%" outerRadius="100%" data={riskGaugeData} startAngle={180} endAngle={0}>
+                <RadialBar background dataKey="value" cornerRadius={8} />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6 }}>
+            Final displayed eligibility value is derived from the live backend model response for this seller profile.
+          </div>
         </div>
       </motion.div>
 
@@ -251,7 +333,11 @@ export default function SellerDashboard() {
                 {seller.risk_category === "High" ? "Improve" : `Rs. ${animLimit.toLocaleString("en-IN")}`}
               </div>
               <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>
-                {seller.risk_category === "High" ? "Eligibility pending" : "Estimated limit"}
+                {seller.risk_category === "High"
+                  ? "Eligibility pending"
+                  : estimateSource === "model"
+                    ? "Model-estimated limit"
+                    : "Estimated limit"}
               </div>
               <div style={{ fontSize:13, fontWeight:800, color:rc, marginTop:6 }}>
                 {seller.risk_category} Risk

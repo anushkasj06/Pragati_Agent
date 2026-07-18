@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const conversationSchema = new mongoose.Schema(
   {
     seller_id: { type: String, required: true, index: true },
+    phone_number: { type: String, default: null, index: true },
     role: {
       type: String,
       enum: ["user", "assistant", "system"],
@@ -11,6 +12,7 @@ const conversationSchema = new mongoose.Schema(
     message: { type: String, required: true },
     timestamp: { type: Date, default: Date.now, index: true },
     language: { type: String, default: "English" },
+    context_used: { type: String, default: "loan-evaluation" },
     metadata: { type: mongoose.Schema.Types.Mixed },
   },
   { timestamps: true }

@@ -35,30 +35,35 @@ const router = Router();
  */
 router.post("/evaluate", evaluateLoan);
 router.get("/decisions", getDecisionHistory);
-router.post("/applications", (req, res) => {
+router.post("/applications", async (req, res) => {
   try {
-    const application = createApplication(req.body);
+    const application = await createApplication(req.body);
     res.json({ application });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
-router.get("/applications", (req, res) => {
-  const sellerId = req.query.seller_id || req.query.sellerId;
-  const status = req.query.status;
-  res.json({ applications: listApplications({ sellerId, status }) });
-});
-router.post("/applications/:id/approve", (req, res) => {
+router.get("/applications", async (req, res) => {
   try {
-    const application = updateApplicationStatus(req.params.id, "approved", req.body.adminNote || "");
+    const sellerId = req.query.seller_id || req.query.sellerId;
+    const status = req.query.status;
+    const applications = await listApplications({ sellerId, status });
+    res.json({ applications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router.post("/applications/:id/approve", async (req, res) => {
+  try {
+    const application = await updateApplicationStatus(req.params.id, "approved", req.body.adminNote || "");
     res.json({ application });
   } catch (error) {
     res.status(404).json({ error: error.message });
   }
 });
-router.post("/applications/:id/reject", (req, res) => {
+router.post("/applications/:id/reject", async (req, res) => {
   try {
-    const application = updateApplicationStatus(req.params.id, "rejected", req.body.adminNote || "");
+    const application = await updateApplicationStatus(req.params.id, "rejected", req.body.adminNote || "");
     res.json({ application });
   } catch (error) {
     res.status(404).json({ error: error.message });

@@ -12,6 +12,7 @@ import {
   getNotificationsForSeller,
 } from "../services/applicationService.js";
 import { saveApplicationDocuments } from "../services/documentService.js";
+import { Application } from "../models/Application.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -23,6 +24,33 @@ const applicationFiles = [
 ];
 
 function normalizeApplicationPayload(body = {}) {
+  let documents = body.documents || {};
+  if (typeof documents === "string") {
+    try {
+      documents = JSON.parse(documents);
+    } catch {
+      documents = {};
+    }
+  }
+
+  let evaluation = body.evaluation || null;
+  if (typeof evaluation === "string") {
+    try {
+      evaluation = JSON.parse(evaluation);
+    } catch {
+      evaluation = null;
+    }
+  }
+
+  let businessStats = body.businessStats || null;
+  if (typeof businessStats === "string") {
+    try {
+      businessStats = JSON.parse(businessStats);
+    } catch {
+      businessStats = null;
+    }
+  }
+
   return {
     sellerId: body.sellerId || body.seller_id,
     sellerName: body.sellerName || body.seller_name || "Seller",
@@ -34,7 +62,9 @@ function normalizeApplicationPayload(body = {}) {
       body.decisionMessage || body.decision_message || "Documents submitted successfully. Awaiting admin review.",
     riskClass: body.riskClass || body.risk_class || "Pending",
     language: body.language || "English",
-    documents: body.documents || {},
+    documents,
+    evaluation,
+    businessStats,
   };
 }
 
@@ -49,13 +79,25 @@ router.post(
     }
     next();
   },
-  (req, res) => {
+  async (req, res) => {
     try {
       const payload = normalizeApplicationPayload(req.body);
-      const application = createApplication(payload);
+      const application = await createApplication(payload);
 
       if (req.files && Object.keys(req.files).length > 0) {
-        application.documents = saveApplicationDocuments(application, req.files);
+        const savedDocuments = saveApplicationDocuments(application, req.files);
+        application.documents = {
+          ...(application.documents || {}),
+          ...savedDocuments,
+        };
+        const updated = await Application.findOneAndUpdate(
+          { id: application.id },
+          { documents: application.documents },
+          { new: true }
+        ).lean().exec();
+        if (updated) {
+          application.documents = updated.documents || application.documents;
+        }
       }
 
       res.json({ application });
@@ -65,33 +107,43 @@ router.post(
   }
 );
 
-router.get("/applications", (req, res) => {
-  const sellerId = req.query.seller_id || req.query.sellerId;
-  const status = req.query.status;
-  res.json({ applications: listApplications({ sellerId, status }) });
+router.get("/applications", async (req, res) => {
+  try {
+    const sellerId = req.query.seller_id || req.query.sellerId;
+    const status = req.query.status;
+    const applications = await listApplications({ sellerId, status });
+    res.json({ applications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.post("/applications/:id/approve", (req, res) => {
+router.post("/applications/:id/approve", async (req, res) => {
   try {
-    const application = updateApplicationStatus(req.params.id, "approved", req.body.adminNote || "");
+    const application = await updateApplicationStatus(req.params.id, "approved", req.body.adminNote || "");
     res.json({ application });
   } catch (error) {
     res.status(404).json({ error: error.message });
   }
 });
 
-router.post("/applications/:id/reject", (req, res) => {
+router.post("/applications/:id/reject", async (req, res) => {
   try {
-    const application = updateApplicationStatus(req.params.id, "rejected", req.body.adminNote || "");
+    const application = await updateApplicationStatus(req.params.id, "rejected", req.body.adminNote || "");
     res.json({ application });
   } catch (error) {
     res.status(404).json({ error: error.message });
   }
 });
 
-router.get("/notifications", (req, res) => {
-  const sellerId = req.query.seller_id || req.query.sellerId;
-  res.json({ notifications: getNotificationsForSeller(sellerId) });
+router.get("/notifications", async (req, res) => {
+  try {
+    const sellerId = req.query.seller_id || req.query.sellerId;
+    const notifications = await getNotificationsForSeller(sellerId);
+    res.json({ notifications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get("/:sellerId/estimate", getSellerEstimate);

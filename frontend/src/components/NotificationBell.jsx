@@ -11,7 +11,7 @@ const TYPE_CONFIG = {
   success:  { color:"#22C55E", bg:"rgba(34,197,94,0.1)",  Icon:CheckCircle },
   pending:  { color:"#F59E0B", bg:"rgba(245,158,11,0.1)", Icon:Clock       },
   rejected: { color:"#EF4444", bg:"rgba(239,68,68,0.1)",  Icon:XCircle     },
-  info:     { color:"#6F2DBD", bg:"rgba(111,45,189,0.1)", Icon:Bell        },
+  info:     { color:"#6F2DBD", bg:"rgba(0, 0, 0, 1)", Icon:Bell        },
 };
 
 function timeAgo(iso) {
@@ -116,7 +116,7 @@ export default function NotificationBell({ dark = false }) {
                 const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.info;
                 const Icon = cfg.Icon;
                 return (
-                  <div key={n.id} onClick={() => markRead(n.id)}
+                  <div key={n._id || n.id || n.timestamp} onClick={() => markRead(n.id)}
                     style={{ display:"flex", gap:12, padding:"13px 18px",
                       borderBottom:"1px solid #F8F4FF", cursor:"pointer",
                       background: n.read ? "#fff" : "#F8F4FF",

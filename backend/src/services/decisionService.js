@@ -34,7 +34,15 @@ export async function saveDecision(decisionData) {
  * @returns {Promise<object|null>}
  */
 export async function getLatestDecision(sellerId) {
-  return Decision.findOne({ seller_id: sellerId }).sort({ timestamp: -1 }).lean();
+  try {
+    return await Decision.findOne({ seller_id: sellerId }).sort({ timestamp: -1 }).lean();
+  } catch (error) {
+    logger.warn("Latest decision unavailable; continuing without MongoDB", {
+      sellerId,
+      error: error.message,
+    });
+    return null;
+  }
 }
 
 /**

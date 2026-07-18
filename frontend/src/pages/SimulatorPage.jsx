@@ -1,11 +1,12 @@
 /**
  * SimulatorPage.jsx
  * What-If Simulator — interactive sliders to explore loan eligibility scenarios.
+ * Auto-runs evaluation when significant changes are detected.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { FlaskConical, Sliders, Info, Zap, CheckCircle, AlertCircle } from "lucide-react";
+import { FlaskConical, Sliders, Info, Zap, CheckCircle, AlertCircle, Zap as ZapIcon } from "lucide-react";
 import { evaluateLoan } from "../services/api";
 import { useApp } from "../context/AppContext";
 import { SELLER_DATA_FIELDS } from "../utils/constants";
@@ -37,6 +38,14 @@ const fadeUp = (delay = 0) => ({
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] },
 });
+
+// Add pulse animation
+const pulseStyle = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+`;
 
 // Only sliders (numeric, not select)
 const SLIDER_FIELDS = SELLER_DATA_FIELDS.filter((f) => f.type === "number").slice(0, 8);
@@ -80,6 +89,24 @@ export default function SimulatorPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [autoEvalTriggered, setAutoEvalTriggered] = useState(false);
+  
+  const prevValuesRef = useRef(buildDefaults());
+  const debounceTimerRef = useRef(null);
+  
+  // Threshold: 10% change triggers auto-evaluation
+  const SIGNIFICANT_CHANGE_THRESHOLD = 0.1;
+  
+  function hasSignificantChange(oldVals, newVals) {
+    return SLIDER_FIELDS.some((field) => {
+      const oldVal = oldVals[field.key] || 0;
+      const newVal = newVals[field.key] || 0;
+      
+      if (oldVal === 0) return Math.abs(newVal) > 0;
+      const changePercent = Math.abs((newVal - oldVal) / oldVal);
+      return changePercent >= SIGNIFICANT_CHANGE_THRESHOLD;
+    });
+  }
 
   function handleSlider(key, val) {
     setValues((prev) => ({ ...prev, [key]: parseFloat(val) }));
@@ -89,6 +116,7 @@ export default function SimulatorPage() {
     setError(null);
     setResult(null);
     setLoading(true);
+    setAutoEvalTriggered(false);
 
     try {
       const payload = {
@@ -98,6 +126,7 @@ export default function SimulatorPage() {
       };
       const response = await evaluateLoan(payload);
       setResult(response);
+      prevValuesRef.current = { ...values };
     } catch (err) {
       setError(err?.message || "Simulation failed. Please check backend connectivity.");
     } finally {
@@ -105,8 +134,47 @@ export default function SimulatorPage() {
     }
   }
 
+  // Auto-trigger evaluation on significant changes (debounced)
+  useEffect(() => {
+    if (hasSignificantChange(prevValuesRef.current, values)) {
+      // Clear existing timer
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      
+      // Set new timer - auto-run after 800ms of inactivity
+      debounceTimerRef.current = setTimeout(() => {
+        setAutoEvalTriggered(true);
+        setError(null);
+        setResult(null);
+        setLoading(true);
+
+        (async () => {
+          try {
+            const payload = {
+              seller_id: "SIMULATOR_SELLER",
+              language: sellerLanguage,
+              seller_data: toSellerData(values),
+            };
+            const response = await evaluateLoan(payload);
+            setResult(response);
+            prevValuesRef.current = { ...values };
+          } catch (err) {
+            setError(err?.message || "Auto-evaluation failed.");
+          } finally {
+            setLoading(false);
+            setAutoEvalTriggered(false);
+          }
+        })();
+      }, 800);
+    }
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [values, sellerLanguage]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <style>{pulseStyle}</style>
 
       {/* Header */}
       <motion.div {...fadeUp(0)}>
@@ -200,13 +268,25 @@ export default function SimulatorPage() {
                 fontWeight: 700,
                 cursor: loading ? "not-allowed" : "pointer",
                 minWidth: 160,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? "Running Simulation..." : "Run Simulation"}
+              <Zap style={{ width: 16, height: 16 }} />
+              {loading ? "Running..." : "Run Simulation"}
             </button>
             <div style={{ alignSelf: "center", color: C.text2, fontSize: 13 }}>
               Response in {sellerLanguage} · Backend prediction + explanation
             </div>
+            {autoEvalTriggered && !loading && (
+              <div style={{ alignSelf: "center", fontSize: 12, color: C.green, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, animation: "pulse 2s infinite" }} />
+                Auto-evaluated on change
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -316,9 +396,12 @@ export default function SimulatorPage() {
               <h3 style={{ fontSize: 17, fontWeight: 700, color: C.text1, margin: "0 0 8px" }}>
                 Ready for Simulation
               </h3>
-              <p style={{ fontSize: 13, color: C.text2, margin: "0 0 20px", lineHeight: 1.7 }}>
-                Set the slider values, choose your language from the navbar, and click
-                <strong> Run Simulation</strong> to get a structured backend response in {sellerLanguage}.
+              <p style={{ fontSize: 13, color: C.text2, margin: "0 0 12px", lineHeight: 1.7 }}>
+                Adjust the slider values to explore different scenarios. When you make a <strong>significant change (≥10%)</strong>, 
+                the evaluation will <strong>automatically run</strong> after a brief pause.
+              </p>
+              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 20px", lineHeight: 1.7 }}>
+                You can also click <strong>Run Simulation</strong> anytime to manually evaluate or tweak small values.
               </p>
               <div style={{
                 padding: "12px 16px", borderRadius: 12,
@@ -326,7 +409,7 @@ export default function SimulatorPage() {
                 border: "1px solid rgba(111,45,189,0.18)",
                 fontSize: 13, color: C.text1, fontWeight: 600,
               }}>
-                The result will include decision, reasoning, improvement plan, and audit details.
+                The result will include decision, reasoning, improvement plan, and audit details in {sellerLanguage}.
               </div>
             </motion.div>
           )}

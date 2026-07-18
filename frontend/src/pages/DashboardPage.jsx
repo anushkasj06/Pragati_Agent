@@ -9,7 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   TrendingUp, CheckCircle, XCircle, Clock, IndianRupee,
-  ExternalLink, ArrowUpRight, ArrowDownRight,
+  ExternalLink, ArrowUpRight, ArrowDownRight, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -198,6 +198,7 @@ export default function DashboardPage() {
   const [loadingApps, setLoadingApps] = useState(true);
   const [reviewNote, setReviewNote] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const [selectedAppId, setSelectedAppId] = useState(null);
   const { addNotification } = useNotifications();
 
   useEffect(() => {
@@ -231,8 +232,8 @@ export default function DashboardPage() {
         message: `${updated.sellerName || "Seller"}'s application ${updated.id} was ${action === "approve" ? "approved" : "rejected"}.`,
         type: action === "approve" ? "success" : "rejected",
       });
-      const refreshed = await getLoanApplications();
-      setApplications(refreshed || []);
+      setApplications((prev) => prev.map((app) => (app.id === updated.id ? updated : app)));
+      setSelectedAppId(updated.id);
     } catch (err) {
       alert(err?.message || "Unable to update application");
     } finally {
@@ -352,27 +353,31 @@ export default function DashboardPage() {
         <div style={{ overflowX: "auto" }}>
           {loadingApps ? (
             <div style={{ padding: "24px", color: C.muted }}>Loading applications...</div>
-          ) : applications.length === 0 ? (
-            <div style={{ padding: "24px", color: C.muted }}>No seller applications submitted yet.</div>
+          ) : (() => {
+            const reviewApps = applications.filter((app) => app.status === "pending" || !app.status);
+            return reviewApps.length === 0 ? (
+            <div style={{ padding: "24px", color: C.muted }}>All applications have been reviewed. <Link to="/history" style={{ color: C.purple, textDecoration: "none", fontWeight: 600 }}>View all applications</Link></div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#FAFAFA", borderBottom: `1px solid ${C.border}` }}>
-                  {['Seller','Amount','Risk','Status','Submitted','Documents','Details'].map((h) => (
+                  {['Seller','Amount','Risk','Submitted','Details'].map((h) => (
                     <th key={h} style={{ padding: "10px 16px", fontSize: 12, fontWeight: 600, color: C.muted, textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {applications.map((app, i) => (
+                {reviewApps.map((app, i) => (
                   <tr
                     key={app.id}
                     onMouseEnter={() => setHoveredRow(i)}
                     onMouseLeave={() => setHoveredRow(null)}
+                    onClick={() => setSelectedAppId(selectedAppId === app.id ? null : app.id)}
                     style={{
-                      borderBottom: i < applications.length - 1 ? `1px solid ${C.border}` : "none",
-                      background: hoveredRow === i ? "#F8F4FF" : i % 2 === 0 ? "#FFFFFF" : "#FDFCFF",
+                      borderBottom: i < reviewApps.length - 1 ? `1px solid ${C.border}` : "none",
+                      background: selectedAppId === app.id ? "#EEF2FF" : hoveredRow === i ? "#F8F4FF" : i % 2 === 0 ? "#FFFFFF" : "#FDFCFF",
                       transition: "background 0.15s",
+                      cursor: "pointer",
                     }}
                   >
                     <td style={{ padding: "12px 16px" }}>
@@ -381,42 +386,194 @@ export default function DashboardPage() {
                     </td>
                     <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 600, color: C.text1 }}>₹{Number(app.amount || app.requestedAmount || 0).toLocaleString("en-IN")}</td>
                     <td style={{ padding: "12px 16px" }}><RiskBadge risk={app.riskClass || "Pending"} /></td>
-                    <td style={{ padding: "12px 16px" }}><StatusBadge status={app.status === "approved" ? "Approved" : app.status === "rejected" ? "Rejected" : "Review"} /></td>
                     <td style={{ padding: "12px 16px", fontSize: 12, color: C.muted }}>{new Date(app.submittedAt).toLocaleString("en-IN")}</td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Documents uploaded</div>
-                        <div style={{ fontSize: 12, color: C.text1, lineHeight: 1.5 }}>
-                          {app.documents && Object.keys(app.documents).length > 0 ? (
-                            Object.keys(app.documents)
-                              .map(key => key.toUpperCase())
-                              .join(", ")
-                          ) : (
-                            <span style={{ color: C.muted }}>No files attached</span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <textarea
-                          value={reviewNote[app.id] || ""}
-                          onChange={(e) => setReviewNote((prev) => ({ ...prev, [app.id]: e.target.value }))}
-                          placeholder="Admin note"
-                          style={{ minWidth: 180, minHeight: 62, borderRadius: 10, border: `1px solid ${C.border}`, padding: 8, fontSize: 12 }}
-                        />
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => handleDecision(app.id, "approve")} disabled={busyId === app.id} style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#22C55E", color: "#fff", cursor: "pointer" }}>{busyId === app.id ? "Working..." : "Approve"}</button>
-                          <button onClick={() => handleDecision(app.id, "reject")} disabled={busyId === app.id} style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", cursor: "pointer" }}>{busyId === app.id ? "Working..." : "Reject"}</button>
-                        </div>
-                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedAppId(selectedAppId === app.id ? null : app.id); }}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          border: `1px solid ${C.border}`,
+                          background: "#fff",
+                          color: C.purple,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {selectedAppId === app.id ? "Hide details" : "View details"}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
+          );
+          })()}
         </div>
+          {selectedAppId && (
+            <div style={{ padding: "20px 24px 24px", background: "#F9F7FF", borderTop: `1px solid ${C.border}` }}>
+              {(() => {
+                const app = applications.find((item) => item.id === selectedAppId);
+                if (!app) return null;
+                return (
+                  <div style={{ display: "grid", gap: 24 }}>
+                    {/* Loan Summary Card */}
+                    <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                        <IndianRupee style={{ width: 18, height: 18, color: C.purple }} />
+                        Loan Summary
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Submitted Amount</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>₹{Number(app.amount || app.requestedAmount || 0).toLocaleString("en-IN")}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Estimated Loan Limit</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: C.purple }}>₹{Number(app.evaluation?.decision?.loan_limit || app.amount || 0).toLocaleString("en-IN")}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Risk Classification</div>
+                          <RiskBadge risk={app.evaluation?.decision?.risk_class || app.riskClass || "Pending"} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Current Status</div>
+                          <StatusBadge status={app.status === "approved" ? "Approved" : app.status === "rejected" ? "Rejected" : "Review"} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Decision Controls Card (only show if status is pending) */}
+                    {(!app.status || app.status === "pending") && (
+                      <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 16 }}>Loan Decision</div>
+                        <textarea
+                          value={reviewNote[app.id] || ""}
+                          onChange={(e) => setReviewNote((prev) => ({ ...prev, [app.id]: e.target.value }))}
+                          placeholder="Optional admin note or remarks..."
+                          style={{ width: "100%", minHeight: 80, borderRadius: 10, border: `1px solid ${C.border}`, padding: 12, fontSize: 13, marginBottom: 16, fontFamily: "inherit" }}
+                        />
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => handleDecision(app.id, "approve")}
+                            disabled={busyId === app.id}
+                            style={{
+                              padding: "10px 16px",
+                              borderRadius: 8,
+                              border: "none",
+                              background: C.green,
+                              color: "#fff",
+                              cursor: busyId === app.id ? "not-allowed" : "pointer",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              opacity: busyId === app.id ? 0.6 : 1,
+                              transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => !busyId && (e.target.style.background = "#16A34A", e.target.style.transform = "translateY(-1px)", e.target.style.boxShadow = "0 4px 12px rgba(34,197,94,0.3)")}
+                            onMouseLeave={(e) => (e.target.style.background = C.green, e.target.style.transform = "translateY(0)", e.target.style.boxShadow = "none")}
+                          >
+                            <ThumbsUp style={{ width: 16, height: 16 }} />
+                            {busyId === app.id ? "Processing..." : "Approve Loan"}
+                          </button>
+                          <button
+                            onClick={() => handleDecision(app.id, "reject")}
+                            disabled={busyId === app.id}
+                            style={{
+                              padding: "10px 16px",
+                              borderRadius: 8,
+                              border: "none",
+                              background: C.red,
+                              color: "#fff",
+                              cursor: busyId === app.id ? "not-allowed" : "pointer",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              opacity: busyId === app.id ? 0.6 : 1,
+                              transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => !busyId && (e.target.style.background = "#DC2626", e.target.style.transform = "translateY(-1px)", e.target.style.boxShadow = "0 4px 12px rgba(239,68,68,0.3)")}
+                            onMouseLeave={(e) => (e.target.style.background = C.red, e.target.style.transform = "translateY(0)", e.target.style.boxShadow = "none")}
+                          >
+                            <ThumbsDown style={{ width: 16, height: 16 }} />
+                            {busyId === app.id ? "Processing..." : "Reject Loan"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Business Metrics Card */}
+                    <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 16 }}>Business Metrics</div>
+                      {app.businessStats ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                          {Object.entries(app.businessStats).slice(0, 6).map(([key, value]) => (
+                            <div key={key} style={{ padding: 12, borderRadius: 8, background: "#F8F4FF" }}>
+                              <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>{key.replace(/_/g, " ")}</div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{String(value)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: C.muted }}>No business metrics submitted.</div>
+                      )}
+                    </div>
+
+                    {/* Audit Trail Card */}
+                    <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 12 }}>Audit Trail</div>
+                      <div style={{ fontSize: 12, color: C.text2, whiteSpace: "pre-wrap", lineHeight: 1.8, background: "#F8F4FF", padding: 12, borderRadius: 8 }}>
+                        {app.evaluation?.auditor_trail || "No audit trail available."}
+                      </div>
+                    </div>
+
+                    {/* Top Feature Reasons */}
+                    <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 16 }}>Risk Assessment Details</div>
+                      {app.evaluation?.top_reasoning_features?.length > 0 ? (
+                        <div style={{ display: "grid", gap: 12 }}>
+                          {app.evaluation.top_reasoning_features.map((feat, idx) => (
+                            <div key={idx} style={{ padding: 14, borderRadius: 10, background: "#F8F4FF", borderLeft: `4px solid ${feat.impact === "positive" ? C.green : C.red}` }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, marginBottom: 4 }}>{feat.feature}</div>
+                              <div style={{ fontSize: 12, color: C.text2, marginBottom: 8 }}>{feat.reason}</div>
+                              <div style={{ display: "inline-block", padding: "3px 8px", borderRadius: 4, background: feat.impact === "positive" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", fontSize: 11, fontWeight: 600, color: feat.impact === "positive" ? C.green : C.red }}>
+                                {feat.impact === "positive" ? "✓ Positive" : "✗ Negative"} Impact
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: C.muted }}>No detailed feature analysis available.</div>
+                      )}
+                    </div>
+
+                    {/* Documents Section - Only show if application is not approved/rejected */}
+                    {(!app.status || app.status === "pending") && Object.entries(app.documents || {}).length > 0 && (
+                      <div style={{ ...card({ padding: 20, background: "#fff" }) }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 16 }}>Uploaded Documents</div>
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {Object.entries(app.documents).map(([key, doc]) => (
+                            <a key={key} href={doc.url || "#"} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12, borderRadius: 8, background: "#F8F4FF", color: C.purple, textDecoration: "none", transition: "all 0.2s", border: `1px solid ${C.border}` }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "#EEF2FF", e.currentTarget.style.transform = "translateX(4px)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "#F8F4FF", e.currentTarget.style.transform = "translateX(0)")}
+                            >
+                              <span style={{ fontSize: 12, fontWeight: 700 }}>{key.toUpperCase()}</span>
+                              <span style={{ fontSize: 12, color: C.text2 }}>📄 {doc.fileName}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
       </motion.div>
 
       {/* Section 4: Bar chart + Quick Actions */}

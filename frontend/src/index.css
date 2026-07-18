@@ -159,7 +159,15 @@
   }
 
   /* ── Section helpers ── */
-  .section { padding: 5rem 1rem; }
+  .section { padding: 3.5rem 0.75rem; }
+
+  @media (max-width: 1024px) {
+    .section { padding: 3rem 0.75rem; }
+  }
+
+  @media (max-width: 640px) {
+    .section { padding: 2.5rem 0.5rem; }
+  }
 
   .section-title {
     font-size: clamp(1.75rem, 3vw, 2.5rem);

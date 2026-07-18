@@ -1,7 +1,7 @@
 import { createHttpError } from "../middleware/errorHandler.js";
 import { evaluateRules } from "../services/rulesEngine.js";
 import { scoreSeller } from "../services/mlService.js";
-import { createSeller } from "../services/sellerService.js";
+import { createSeller, getSellerById } from "../services/sellerService.js";
 import { getSellerProfile, listSellerProfiles } from "../services/sellerProfileService.js";
 import { buildWhatsAppUrl } from "../config/twilio.js";
 import { queueNotification, buildLoanEvaluationWhatsAppMessage } from "../services/notificationService.js";
@@ -58,14 +58,11 @@ export async function registerSeller(req, res) {
   void queueNotification({
     sellerId: seller.seller_id,
     phoneNumber: seller.phone_number,
-    sellerMessage: `Welcome ${seller.seller_name}! Your seller profile is set up and the WhatsApp sandbox is connected. Open the sandbox link and send '${sandboxJoinCode}' to configure the sandbox, then send EVALUATE ${seller.seller_id} to receive your loan evaluation result.`,
-    loanStatus: "Registered",
-    loanLimit: 0,
-    riskClass: "N/A",
-    improvementPlan: [
-      `Open the WhatsApp sandbox link and send '${sandboxJoinCode}' to the Twilio sandbox number.`,
-      `After sandbox setup is complete, send EVALUATE ${seller.seller_id} from WhatsApp to request a loan evaluation.`,
-    ],
+    sellerMessage: `Welcome ${seller.seller_name}! Your seller profile is ready. Open the WhatsApp sandbox link and send '${sandboxJoinCode}' to connect the sandbox, then send EVALUATE ${seller.seller_id} from WhatsApp to request your loan evaluation.`,
+    loanStatus: null,
+    loanLimit: null,
+    riskClass: null,
+    improvementPlan: [],
   }).catch((error) => {
     console.error("Failed to send seller onboarding WhatsApp message", error);
   });
@@ -79,9 +76,32 @@ export async function registerSeller(req, res) {
   });
 }
 
-export function getSeller(req, res, next) {
+async function resolveSellerProfile(sellerId) {
+  const normalizedId = String(sellerId || "").trim().toUpperCase();
+  if (!normalizedId) return null;
+
+  const profile = getSellerProfile(normalizedId);
+  if (profile) return profile;
+
+  const dbSeller = await getSellerById(normalizedId);
+  if (!dbSeller) return null;
+
+  return {
+    id: dbSeller.seller_id,
+    risk_category: dbSeller.seller_data?.risk_category || "Pending",
+    name: dbSeller.seller_name,
+    business: dbSeller.seller_data?.business || "Seller business",
+    city: dbSeller.seller_data?.city || "Unknown",
+    phone: dbSeller.phone_number,
+    language: dbSeller.preferred_language || "English",
+    summary: dbSeller.seller_data?.summary || "Registered seller profile.",
+    metrics: dbSeller.seller_data?.metrics || {},
+  };
+}
+
+export async function getSeller(req, res, next) {
   try {
-    const seller = getSellerProfile(req.params.sellerId);
+    const seller = await resolveSellerProfile(req.params.sellerId);
     if (!seller) throw createHttpError(404, "Seller profile not found");
     res.json({ seller: publicSellerProfile(seller) });
   } catch (error) {
@@ -91,7 +111,7 @@ export function getSeller(req, res, next) {
 
 export async function getSellerEstimate(req, res, next) {
   try {
-    const seller = getSellerProfile(req.params.sellerId);
+    const seller = await resolveSellerProfile(req.params.sellerId);
     if (!seller) throw createHttpError(404, "Seller profile not found");
 
     const mlResult = await scoreSeller(seller.id, seller.metrics);

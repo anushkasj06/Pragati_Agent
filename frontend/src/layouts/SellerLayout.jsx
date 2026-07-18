@@ -37,10 +37,10 @@ const S = {
 
 const NAV = [
   { to: "/seller",             label: "Dashboard",         icon: LayoutDashboard, exact: true },
-  { to: "/seller/portal",      label: "Seller Portal",     icon: Sparkles                     },
+  // { to: "/seller/portal",      label: "Seller Portal",     icon: Sparkles                     },
   { to: "/seller/loan-guide",  label: "Apply for Loan",    icon: CreditCard                   },
-  { to: "/seller/apply",       label: "Quick Evaluate",    icon: Zap                          },
   { to: "/seller/coach",       label: "AI Financial Coach",icon: MessageCircle                },
+  { to: "/seller/apply",       label: "Quick Evaluate",    icon: Zap                          },
   { to: "/seller/history",     label: "Loan History",      icon: ClipboardList                },
   { to: "/seller/insights",    label: "Business Insights", icon: BarChart2                    },
   { to: "/seller/profile",     label: "My Profile",        icon: User                         },

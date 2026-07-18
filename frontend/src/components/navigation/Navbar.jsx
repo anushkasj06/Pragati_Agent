@@ -3,19 +3,12 @@ import { NavLink, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Wifi, WifiOff, Globe, ChevronDown, Check } from "lucide-react";
 import { useBackendHealth } from "../../hooks/useBackendHealth";
-import { SUPPORTED_LANGUAGES } from "../../utils/constants";
-
-const NAV_LINKS = [
-  { to: "/",         label: "Home",         end: true  },
-  { to: "/evaluate", label: "Evaluate"               },
-  { to: "/history",  label: "History"                },
-  { to: "/docs",     label: "Architecture"           },
-  { to: "/debug",    label: "About"                  },
-];
+import { useLanguage } from "../../i18n/LanguageProvider";
 
 function MiniLanguageSelector() {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(SUPPORTED_LANGUAGES[0]);
+  const { language, setLanguage, supportedLanguages } = useLanguage();
+  const selected = supportedLanguages.find((lang) => lang.code === language) || supportedLanguages[0];
 
   return (
     <div className="relative">
@@ -69,10 +62,10 @@ function MiniLanguageSelector() {
               overflow: "hidden",
             }}
           >
-            {SUPPORTED_LANGUAGES.map((lang) => (
+            {supportedLanguages.map((lang) => (
               <button
-                key={lang.value}
-                onClick={() => { setSelected(lang); setOpen(false); }}
+                key={lang.code}
+                onClick={() => { setLanguage(lang.code); setOpen(false); }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -80,7 +73,7 @@ function MiniLanguageSelector() {
                   width: "100%",
                   padding: "10px 16px",
                   fontSize: "13px",
-                  color: selected.value === lang.value ? "#A78BFA" : "rgba(255,255,255,0.75)",
+                  color: selected.code === lang.code ? "#A78BFA" : "rgba(255,255,255,0.75)",
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -90,8 +83,8 @@ function MiniLanguageSelector() {
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
-                <span>{lang.native}</span>
-                {selected.value === lang.value && (
+                <span>{lang.nativeName}</span>
+                {selected.code === lang.code && (
                   <Check style={{ width: 13, height: 13, color: "#A78BFA" }} />
                 )}
               </button>
@@ -106,12 +99,20 @@ function MiniLanguageSelector() {
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { backendOnline, backendChecked } = useBackendHealth();
+  const { t } = useLanguage();
+
+  const NAV_LINKS = [
+    { to: "/", label: t("home"), end: true },
+    { to: "/evaluate", label: t("evaluate") },
+    { to: "/docs", label: t("architecture") },
+    { to: "/about", label: t("about") },
+  ];
 
   const navStyle = {
     position: "sticky",
     top: 0,
     zIndex: 40,
-    background: "#120B2E",
+    background: "#2b0633",
     borderBottom: "1px solid rgba(255,255,255,0.08)",
     boxShadow: "0 2px 24px rgba(0,0,0,0.35)",
   };
@@ -155,7 +156,7 @@ export default function Navbar() {
                 borderRadius: "10px",
                 fontSize: "14px",
                 fontWeight: isActive ? 600 : 500,
-                color: isActive ? "#ffffff" : "rgba(255,255,255,0.6)",
+                color: isActive ? "#ffffff" : "rgba(255,255,255,1)",
                 background: isActive ? "rgba(111,45,189,0.35)" : "transparent",
                 border: isActive ? "1px solid rgba(111,45,189,0.4)" : "1px solid transparent",
                 textDecoration: "none",

@@ -136,7 +136,11 @@ export async function registerSeller(payload) {
 
 export async function getSellerProfiles() { return []; }
 export async function getSellerProfile()  { return null; }
-export async function getSellerEstimate() { return null; }
+export async function getSellerEstimate(sellerId) {
+  if (!sellerId) return null;
+  const res = await apiClient.get(`/api/sellers/${sellerId}/estimate`);
+  return res.data;
+}
 
 export async function submitLoanApplication(payload) {
   const formData = new FormData();
@@ -145,11 +149,19 @@ export async function submitLoanApplication(payload) {
     if (value === undefined || value === null) return;
 
     if (key === "documents") {
+      const metadata = {};
+
       Object.entries(value).forEach(([docKey, file]) => {
         if (file instanceof File) {
           formData.append(docKey, file, file.name);
+        } else {
+          metadata[docKey] = file;
         }
       });
+
+      if (Object.keys(metadata).length > 0) {
+        formData.append("documents", JSON.stringify(metadata));
+      }
       return;
     }
 

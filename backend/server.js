@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
@@ -20,6 +22,7 @@ import sellerOnboardingRoutes from "./src/routes/sellerOnboardingRoutes.js";
 import debugRoutes from "./src/routes/debugRoutes.js";
 import coachRoutes from "./src/routes/coachRoutes.js";
 import twilioRoutes from "./src/routes/twilioRoutes.js";
+import translationRoutes from "./src/routes/translationRoutes.js";
 import { SERVICE_NAME, SERVICE_VERSION } from "./src/utils/constants.js";
 
 const PORT = process.env.PORT || 3001;
@@ -42,11 +45,14 @@ export function createApp() {
     },
     apis: ["./src/routes/*.js"],
   });
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UPLOADS_DIR = path.resolve(__dirname, "uploads");
   const app = express();
 
   app.use(helmet());
   app.use(compression());
+  app.set("trust proxy", 1);
 
   const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:5173")
     .split(",")
@@ -59,9 +65,10 @@ export function createApp() {
   app.use(
     rateLimit({
       windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-      max: Number(process.env.RATE_LIMIT_MAX) || 100,
+      max: Number(process.env.RATE_LIMIT_MAX) || 10000,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) => process.env.NODE_ENV !== "production",
       message: { error: "Too many requests, please try again later" },
     })
   );
@@ -78,6 +85,8 @@ export function createApp() {
   app.use("/api/seller", sellerOnboardingRoutes);
   app.use("/api/twilio", twilioRoutes);
   app.use("/api/coach", coachRoutes);
+  app.use("/api/translate", translationRoutes);
+  app.use("/uploads", express.static(UPLOADS_DIR));
   app.use(errorHandler);
 
   return app;

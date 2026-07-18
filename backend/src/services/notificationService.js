@@ -1,23 +1,32 @@
 import { logger } from "../config/logger.js";
 import { Notification } from "../models/Notification.js";
+import { AppNotification } from "../models/AppNotification.js";
 import { getTwilioClient, buildWhatsAppPayload } from "../config/twilio.js";
 import { normalizePhoneNumber } from "../utils/phoneUtils.js";
 
-function formatMessage({ sellerMessage, loanStatus, loanLimit, riskClass, improvementPlan }) {
+export function formatMessage({ sellerMessage, loanStatus, loanLimit, riskClass, improvementPlan }) {
+  const hasLoanSummary = loanStatus !== null && loanStatus !== undefined && loanStatus !== "" || loanLimit !== null && loanLimit !== undefined && loanLimit !== "" || riskClass !== null && riskClass !== undefined && riskClass !== "";
   const planText = Array.isArray(improvementPlan) && improvementPlan.length > 0
     ? improvementPlan.map((item, idx) => `${idx + 1}. ${item}`).join("\n")
-    : "No improvement plan available.";
+    : null;
 
-  return [
-    `Loan Status: ${loanStatus}`,
-    `Loan Limit: ₹${Number(loanLimit).toLocaleString("en-IN")}`,
-    `Risk Class: ${riskClass}`,
-    "Improvement Plan:",
-    planText,
-    "",
-    "Message:",
-    sellerMessage,
-  ].join("\n");
+  const lines = [];
+
+  if (hasLoanSummary) {
+    if (loanStatus !== null && loanStatus !== undefined && loanStatus !== "") lines.push(`Loan Status: ${loanStatus}`);
+    if (loanLimit !== null && loanLimit !== undefined && loanLimit !== "") lines.push(`Loan Limit: ₹${Number(loanLimit).toLocaleString("en-IN")}`);
+    if (riskClass !== null && riskClass !== undefined && riskClass !== "") lines.push(`Risk Class: ${riskClass}`);
+  }
+
+  if (planText) {
+    if (lines.length > 0) lines.push("");
+    lines.push("Improvement Plan:", planText);
+  }
+
+  if (lines.length > 0) lines.push("");
+  lines.push("Message:", sellerMessage);
+
+  return lines.join("\n");
 }
 
 export function buildLoanEvaluationWhatsAppMessage(evaluateResponse) {
@@ -71,7 +80,7 @@ export function buildLoanEvaluationWhatsAppMessage(evaluateResponse) {
   ].join("\n");
 }
 
-async function persistNotification({ sellerId, normalizedNumber, from, body, metadata }) {
+export async function persistNotification({ sellerId, normalizedNumber, from, body, metadata }) {
   return Notification.create({
     seller_id: sellerId,
     phone_number: normalizedNumber,
@@ -80,6 +89,23 @@ async function persistNotification({ sellerId, normalizedNumber, from, body, met
     status: "queued",
     metadata,
   });
+}
+
+export async function persistAppNotification({ sellerId, title, message, type = "info", link = "/seller/history", metadata = {} }) {
+  return AppNotification.create({
+    seller_id: String(sellerId || "").trim().toUpperCase(),
+    title,
+    message,
+    type,
+    link,
+    metadata,
+  });
+}
+
+export async function getAppNotifications(sellerId) {
+  const filter = {};
+  if (sellerId) filter.seller_id = String(sellerId).trim().toUpperCase();
+  return AppNotification.find(filter).sort({ created_at: -1 }).lean();
 }
 
 const WHATSAPP_MAX_BODY_LENGTH = 1500;
@@ -127,6 +153,11 @@ async function sendPayload(notification, payload) {
   });
 
   return message;
+}
+
+function isTwilioDailyLimitError(error) {
+  const message = String(error?.message || error || "");
+  return message.includes("exceeded the 50 daily messages limit") || message.includes("daily messages limit");
 }
 
 export async function retryFailedNotifications({ sellerId, phoneNumber, maxAttempts = 10 } = {}) {
@@ -290,6 +321,23 @@ export async function queueNotification({
     }
   } catch (error) {
     const failedMessage = error?.message || String(error);
+    const dailyLimitReached = isTwilioDailyLimitError(error);
+
+    if (dailyLimitReached) {
+      await Notification.findByIdAndUpdate(notification._id, {
+        status: "failed",
+        retry_count: (notification.retry_count || 0) + 1,
+        error: failedMessage,
+      });
+
+      logger.warn("WhatsApp notification skipped due to Twilio daily limit", {
+        sellerId,
+        phoneNumber: normalizedNumber,
+        error: failedMessage,
+      });
+      return;
+    }
+
     await Notification.findByIdAndUpdate(notification._id, {
       status: "failed",
       retry_count: (notification.retry_count || 0) + 1,

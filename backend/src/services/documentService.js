@@ -27,6 +27,7 @@ export function saveApplicationDocuments(application, files) {
       mimeType: file.mimetype,
       size: file.size,
       path: outPath,
+      url: `/uploads/applications/${safeName}`,
     };
   });
 
