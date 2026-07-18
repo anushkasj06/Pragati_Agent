@@ -66,12 +66,11 @@ Meesho Pragati Agent acts as an AI Financial Growth Partner for sellers. Instead
 | Frontend (Vercel) |https://pragati-agent.vercel.app|
 | Backend (Render) | https://pragati-backend-5xq8.onrender.com|
 | ML Model Deployment |https://pragati-ml-model.onrender.com |
-| Swagger / API Docs | Pending / Add your deployed URL |
 | GitHub Repository | https://github.com/anushkasj06/Pragati_Agent |
 | Demo Video | Pending / Add your video link |
 | Presentation | https://drive.google.com/file/d/1ORgfjPvHIERGya9hLfV6pp5P0FQwRdaV/view?usp=drive_link |
 
-> Replace the placeholders above with your real deployment URLs once they are live.
+
 
 ---
 
@@ -356,7 +355,6 @@ The repository already contains important supporting documents and architecture 
 - [DEPLOYMENT_QUICK_REFERENCE.md](DEPLOYMENT_QUICK_REFERENCE.md) — deployment checklist for Render and Vercel.
 - [GOOGLE_TRANSLATION_SETUP.md](GOOGLE_TRANSLATION_SETUP.md) — Google translation setup instructions.
 
-> These documents are directly referenced here so reviewers can open them from the README without searching the repository.
 
 ---
 
@@ -757,7 +755,18 @@ The repository includes a rich set of screenshots that showcase the product expe
 ### Screenshot 1 — Seller evaluation experience
 
 <p align="center">
-  <img src="screenshot/Screenshot 2026-07-18 231653.png" alt="Seller evaluation screen" width="900" />
+  <img src="screenshot/Seller_Eval0.png" alt="Seller evaluation screen" width="900" />
+</p>
+
+<p align="center">
+  <img src="screenshot/Seller_Eval1.png" alt="Seller evaluation screen" width="900" />
+</p>
+
+<p align="center">
+  <img src="screenshot/Seller_Eval2.png" alt="Seller evaluation screen" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Seller_Eval3.png" alt="Seller evaluation screen" width="900" />
 </p>
 
 **Purpose:** Demonstrates the seller evaluation form and underwriting experience.
@@ -768,37 +777,57 @@ The repository includes a rich set of screenshots that showcase the product expe
   <img src="screenshot/Screenshot 2026-07-18 231703.png" alt="Loan decision interface" width="900" />
 </p>
 
+<p align="center">
+  <img src="screenshot/Loan1.png" alt="Loan decision interface" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Loan2.png" alt="Loan decision interface" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Loan3.png" alt="Loan decision interface" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Loan4.png" alt="Loan decision interface" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Loan5.png" alt="Loan decision interface" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/Loan6.png" alt="Loan decision interface" width="900" />
+</p>
+
 **Purpose:** Shows how the system presents decision outputs and insights.
 
-### Screenshot 3 — Seller history and application tracking
+
+### Screenshot 3 — WhatApp Inetegration for Loan Application throught whatapp
 
 <p align="center">
-  <img src="screenshot/Screenshot 2026-07-18 231735.png" alt="Seller loan history" width="900" />
+  <img src="screenshot/what1.png" alt="Admin application review" width="900" />
+</p>
+<p align="center">
+  <img src="screenshot/what2.png" alt="Admin application review" width="900" />
 </p>
 
-**Purpose:** Highlights the history and application lifecycle.
+**Purpose:** Shows the seller get loan approval and limit directly on whatapp.
 
-### Screenshot 4 — Application review dashboard
-
-<p align="center">
-  <img src="screenshot/Screenshot 2026-07-18 231754.png" alt="Admin application review" width="900" />
-</p>
-
-**Purpose:** Shows the admin-facing queue and approval workflow.
-
-### Screenshot 5 — Multilingual experience
+### Screenshot 4 — Multilingual experience
 
 <p align="center">
-  <img src="screenshot/Screenshot 2026-07-18 231810.png" alt="Multilingual UI" width="900" />
+  <img src="screenshot/Multi.png" alt="Multilingual UI" width="900" />
 </p>
 
 **Purpose:** Shows the multilingual interface experience.
 
-### Screenshot 6 — Dashboard analytics and review UI
+### Screenshot 5 — Dashboard analytics and review UI
 
 <p align="center">
-  <img src="screenshot/Screenshot 2026-07-18 231821.png" alt="Dashboard analytics" width="900" />
+  <img src="screenshot/Dash.png" alt="Dashboard analytics" width="900" />
 </p>
+
+<p align="center">
+  <img src="screenshot/Dash2.png" alt="Dashboard analytics" width="900" />
+</p>
+
 
 **Purpose:** Highlights the richer analytics and dashboard presentation.
 
