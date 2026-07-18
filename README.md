@@ -922,6 +922,3 @@ This project can have a meaningful impact on:
 
 ---
 
-## 24. License
-
-This project is licensed under the MIT License.
