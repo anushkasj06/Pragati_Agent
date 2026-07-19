@@ -405,7 +405,7 @@ The repository already contains important supporting documents and architecture 
 
 ### Documentation files
 
-- [Anushka's_Team_2_Messho_Pragati_Agent.pdf](Anushka's_Team_2_Messho_Pragati_Agent.pdf) — full team presentation and project overview.
+- [Anushka's Team 2 Messho Pragati Agent - Updated PPT.pdf](Updated_PPT/Anushka's_Team_2_Messho_Pragati_Agent_Updated_PPT.pdf) — full team presentation and project overview.
 - [MEESHO PRAGATI AGENT Diagram.pdf](MEESHO%20PRAGATI%20AGENT%20Diagram.pdf) — architecture and workflow diagram.
 - [Meesho_Pragati_Agent_Documentation.pdf](Meesho_Pragati_Agent_Documentation.pdf) — detailed implementation and product documentation.
 - [DEPLOYMENT_QUICK_REFERENCE.md](DEPLOYMENT_QUICK_REFERENCE.md) — deployment checklist for Render and Vercel.
