@@ -75,7 +75,7 @@ Meesho Pragati Agent acts as an AI Financial Growth Partner for sellers. Instead
 | ML Model Deployment |https://pragati-ml-model.onrender.com |
 | GitHub Repository | https://github.com/anushkasj06/Pragati_Agent |
 | Demo Video | https://drive.google.com/file/d/1dhjVyNLY-MK97_KJzI_YmungfFVOteTJ/view?usp=drive_link |
-| Presentation | https://drive.google.com/file/d/1ORgfjPvHIERGya9hLfV6pp5P0FQwRdaV/view?usp=drive_link |
+| Presentation | https://drive.google.com/file/d/1ys427EheOxEQWmcwQ53VPQNIsdn9HMcU/view?usp=sharing |
 
 
 
