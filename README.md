@@ -12,9 +12,16 @@
   <strong>Live demo:</strong>
   <a href="https://pragati-agent.vercel.app" target="_blank">https://pragati-agent.vercel.app</a>
   &nbsp;|&nbsp;
-  <strong>Demo video placeholder:</strong>
-  <code>screenshot/video/Meesho-Pragati-Agent-Demo.mp4</code>
+  <strong>Demo video:</strong>
+  <a href="https://drive.google.com/file/d/1dhjVyNLY-MK97_KJzI_YmungfFVOteTJ/view?usp=drive_link" target="_blank">Demo Video</a>
 </p>
+<!-- <p align="center">
+  <!-- GitHub will render the HTML5 video tag if the file is present in the repo -->
+  <video controls playsInline style="max-width:1000px; width:100%; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+    <source src="https://drive.google.com/file/d/1dhjVyNLY-MK97_KJzI_YmungfFVOteTJ/view?usp=drive_link" type="video/mp4" />
+    Your browser does not support the video tag. To view the demo, place your MP4 at <code>screenshot/video/Meesho-Pragati-Agent-Demo.mp4</code> or update the path below.
+  </video>
+</p> -->
 
 ## 1. Project Introduction
 
@@ -67,7 +74,7 @@ Meesho Pragati Agent acts as an AI Financial Growth Partner for sellers. Instead
 | Backend (Render) | https://pragati-backend-5xq8.onrender.com|
 | ML Model Deployment |https://pragati-ml-model.onrender.com |
 | GitHub Repository | https://github.com/anushkasj06/Pragati_Agent |
-| Demo Video | Pending / Add your video link |
+| Demo Video | https://drive.google.com/file/d/1dhjVyNLY-MK97_KJzI_YmungfFVOteTJ/view?usp=drive_link |
 | Presentation | https://drive.google.com/file/d/1ORgfjPvHIERGya9hLfV6pp5P0FQwRdaV/view?usp=drive_link |
 
 
@@ -252,7 +259,8 @@ MONGODB_URI=mongodb://localhost:27017/pragati_agent
 ML_SERVICE_URL=http://localhost:5001
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
+GROQ_FALLBACK_MODEL=llama-3.3-70b-versatile
 GROQ_API_BASE_URL=https://api.groq.com/openai/v1
 GOOGLE_PROJECT_ID=your-google-project-id
 GOOGLE_APPLICATION_CREDENTIALS=./gcp-credentials.json
@@ -271,7 +279,8 @@ TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
 | `ML_SERVICE_URL` | Yes | URL of the FastAPI ML service |
 | `CORS_ORIGINS` | Yes | Allowed frontend domains |
 | `GROQ_API_KEY` | Yes for AI features | Groq API authentication |
-| `GROQ_MODEL` | Optional | Model name |
+| `GROQ_MODEL` | Yes for AI features | Primary Groq LLM model name |
+| `GROQ_FALLBACK_MODEL` | Optional | Fallback Groq LLM model name |
 | `GROQ_API_BASE_URL` | Optional | Groq endpoint |
 | `GOOGLE_PROJECT_ID` | Optional | Google Translation project ID |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Optional | Path to service account JSON |
@@ -337,6 +346,8 @@ If you deploy to Render or Vercel, set the following values:
 | Render (backend) | `MONGODB_URI` | `mongodb+srv://...` |
 | Render (backend) | `ML_SERVICE_URL` | `https://your-ml-service.onrender.com` |
 | Render (backend) | `GROQ_API_KEY` | your key |
+| Render (backend) | `GROQ_MODEL` | `openai/gpt-oss-20b` |
+| Render (backend) | `GROQ_FALLBACK_MODEL` | `llama-3.3-70b-versatile` |
 | Render (backend) | `GOOGLE_PROJECT_ID` | your project id |
 | Render (backend) | `GOOGLE_APPLICATION_CREDENTIALS` | `/etc/secrets/gcp-credentials.json` |
 | Vercel (frontend) | `VITE_API_URL` | `https://your-backend.onrender.com` |
@@ -880,7 +891,11 @@ The repository includes a rich set of screenshots that showcase the product expe
 
 ## 19. Demo Video
 
-A demo video is not present in the repository yet. When a video file is added, it can be embedded directly here using a video tag or a clickable preview link.
+A demo video is available at the following link:
+
+- [Watch the demo video](https://drive.google.com/file/d/1dhjVyNLY-MK97_KJzI_YmungfFVOteTJ/view?usp=drive_link)
+
+If you add the MP4 file to the repository, it can also be embedded directly here using a video tag.
 
 ---
 
