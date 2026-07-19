@@ -186,41 +186,39 @@ export default function Navbar() {
           <MiniLanguageSelector />
 
           {/* Backend status */}
-          {backendChecked && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "5px 12px",
-                borderRadius: "10px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: backendOnline ? "#4ADE80" : "#F87171",
-                background: backendOnline ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-                border: `1px solid ${backendOnline ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.25)"}`,
-              }}
-            >
-              {backendOnline ? (
-                <>
-                  <motion.span
-                    style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80", display: "block" }}
-                    animate={{ opacity: [1, 0.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  <Wifi style={{ width: 13, height: 13 }} />
-                  Live
-                </>
-              ) : (
-                <>
-                  <WifiOff style={{ width: 13, height: 13 }} />
-                  Offline
-                </>
-              )}
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "5px 12px",
+              borderRadius: "10px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: backendOnline ? "#4ADE80" : "#F87171",
+              background: backendOnline ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
+              border: `1px solid ${backendOnline ? "rgba(74,222,128,0.25)" : "rgba(248,113,113,0.25)"}`,
+            }}
+          >
+            {backendOnline ? (
+              <>
+                <motion.span
+                  style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80", display: "block" }}
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+                <Wifi style={{ width: 13, height: 13 }} />
+                Backend Live
+              </>
+            ) : (
+              <>
+                <WifiOff style={{ width: 13, height: 13 }} />
+                Backend Offline
+              </>
+            )}
+          </motion.div>
 
           {/* CTA */}
           <Link
