@@ -44,6 +44,67 @@ export function parseAgentJson(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
+function escapeJsonStringLiterals(text) {
+  let inString = false;
+  let escaped = false;
+  let result = "";
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (!inString) {
+      if (ch === '"') {
+        inString = true;
+      }
+      result += ch;
+      continue;
+    }
+
+    if (escaped) {
+      result += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      escaped = true;
+      result += ch;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = false;
+      result += ch;
+      continue;
+    }
+
+    if (ch === "\n") {
+      result += "\\n";
+      continue;
+    }
+
+    if (ch === "\r") {
+      result += "\\r";
+      continue;
+    }
+
+    if (ch === "\t") {
+      result += "\\t";
+      continue;
+    }
+
+    const code = ch.charCodeAt(0);
+    if (code < 0x20) {
+      result += `\\u${code.toString(16).padStart(4, "0")}`;
+      continue;
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
 /**
  * Attempt to repair malformed JSON from LLM output.
  * @param {string} text
@@ -53,7 +114,7 @@ export function repairAndParseJson(text) {
   try {
     return parseAgentJson(text);
   } catch {
-    const fixed = text
+    const fixed = escapeJsonStringLiterals(text)
       .replace(/,\s*}/g, "}")
       .replace(/,\s*]/g, "]")
       .replace(/[\u2018\u2019]/g, "'")

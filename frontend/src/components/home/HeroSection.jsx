@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Plus } from "lucide-react";
 
 /* ── Floating metric card ──────────────────────────────────── */
 function FloatCard({ children, style, delay = 0 }) {
@@ -326,7 +326,7 @@ export default function HeroSection() {
             >
               <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#25D366", boxShadow: "0 0 0 6px rgba(37,211,102,0.16)", animation: "pulse 1.8s ease-in-out infinite" }} />
               <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 800, color: "#111827" }}>Demo Note:</span>{" "}
+                <span style={{ fontWeight: 800, color: "#111827" }}>Demo Note (Click on Refresh till Backend get live ):</span>{" "}
                 Backend is hosted on Render Free Tier. Initial wake-up may take 2–3 minutes. Once the live indicator turns green, the full AI underwriting pipeline becomes available.
               </div>
             </motion.div>
@@ -386,7 +386,7 @@ export default function HeroSection() {
             </motion.p>
 
             {/* Theme strip */}
-            <motion.div
+            {/* <motion.div
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -411,7 +411,7 @@ export default function HeroSection() {
                   <span style={{ color: "#6F2DBD" }}>Agentic AI</span>
                 </div>
               </div>
-            </motion.div>
+            </motion.div> */}
 
             {/* CTA buttons */}
             <motion.div
@@ -429,6 +429,17 @@ export default function HeroSection() {
               >
                 Seller Portal
                 <ArrowRight style={{ width: 16, height: 16 }} />
+              </Link>
+
+              <Link to="/create-seller" style={{ display:"inline-flex",alignItems:"center",gap:8,
+                padding:"13px 24px",borderRadius:12,fontSize:15,fontWeight:700,
+                color:"#ffffff",background:"#128C7E",
+                boxShadow:"0 3px 16px rgba(18,140,126,0.24)",textDecoration:"none",transition:"all 0.2s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.background="#0F766E"; e.currentTarget.style.boxShadow="0 5px 20px rgba(18,140,126,0.32)"; }}
+                onMouseLeave={e=>{ e.currentTarget.style.background="#128C7E"; e.currentTarget.style.boxShadow="0 3px 16px rgba(18,140,126,0.24)"; }}
+              >
+                <Plus style={{ width: 16, height: 16 }} />
+                Create Seller
               </Link>
 
               <Link to="/dashboard" style={{ display:"inline-flex",alignItems:"center",gap:8,

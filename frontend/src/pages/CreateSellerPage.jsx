@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -50,7 +51,28 @@ const APP_FONT = "Inter, system-ui, sans-serif";
 function buildWhatsAppAppUrl(whatsAppUrl, joinCode) {
   if (!whatsAppUrl) return "";
   const digits = whatsAppUrl.replace(/[^0-9]/g, "");
-  return `https://api.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(joinCode)}`;
+  const normalizedPhone = `+${digits}`;
+  const query = [`phone=${encodeURIComponent(normalizedPhone)}`];
+
+  if (joinCode) {
+    query.push(`text=${encodeURIComponent(joinCode)}`);
+  }
+
+  query.push("type=phone_number", "app_absent=0");
+  return `https://api.whatsapp.com/send/?${query.join("&")}`;
+}
+
+function buildWhatsAppWebUrl(whatsAppUrl, joinCode) {
+  if (!whatsAppUrl) return "";
+  const digits = whatsAppUrl.replace(/[^0-9]/g, "");
+  const normalizedPhone = `+${digits}`;
+  const query = [`phone=${encodeURIComponent(normalizedPhone)}`];
+
+  if (joinCode) {
+    query.push(`text=${encodeURIComponent(joinCode)}`);
+  }
+
+  return `https://web.whatsapp.com/send?${query.join("&")}`;
 }
 
 const PERSONAL_FIELDS = [
@@ -142,8 +164,24 @@ export default function CreateSellerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [whatsAppUrl, setWhatsAppUrl] = useState("");
+  const [whatsAppAppUrl, setWhatsAppAppUrl] = useState("");
+  const [whatsAppWebUrl, setWhatsAppWebUrl] = useState("");
   const [step, setStep] = useState(1);
   const [activeTooltip, setActiveTooltip] = useState(null);
+
+  const isValidPhoneNumber = (phone) => {
+    const normalized = phone.replace(/[^0-9]/g, "");
+    return /^(?:91)?[6-9][0-9]{9}$/.test(normalized);
+  };
+
+  // Use Twilio sandbox WhatsApp number for connection links (fixed Twilio sandbox sender)
+  const TWILIO_SANDBOX_NUMBER = "+14155238886";
+  const sandboxConnectAppUrl = isValidPhoneNumber(form.phone_number)
+    ? `https://api.whatsapp.com/send/?phone=${encodeURIComponent(TWILIO_SANDBOX_NUMBER)}&text=${encodeURIComponent(SANDBOX_JOIN_CODE)}&type=phone_number&app_absent=0`
+    : "";
+  const sandboxConnectWebUrl = isValidPhoneNumber(form.phone_number)
+    ? `https://web.whatsapp.com/send?phone=${encodeURIComponent(TWILIO_SANDBOX_NUMBER)}&text=${encodeURIComponent(SANDBOX_JOIN_CODE)}`
+    : "";
 
   useEffect(() => {
     setForm((prev) => ({
@@ -178,12 +216,9 @@ export default function CreateSellerPage() {
     setForm(buildInitialFormState(sellerLanguage));
     setResult(null);
     setWhatsAppUrl("");
+    setWhatsAppAppUrl("");
+    setWhatsAppWebUrl("");
     setStep(1);
-  };
-
-  const isValidPhoneNumber = (phone) => {
-    const normalized = phone.replace(/[^0-9]/g, "");
-    return /^(?:91)?[6-9][0-9]{9}$/.test(normalized);
   };
 
   const validate = () => {
@@ -242,6 +277,8 @@ export default function CreateSellerPage() {
       const response = await registerSeller(payload);
       setResult(response);
       setWhatsAppUrl(response.whatsAppUrl || "");
+      setWhatsAppAppUrl(response.whatsAppAppUrl || buildWhatsAppAppUrl(response.whatsAppUrl || "", response.sandboxJoinCode || SANDBOX_JOIN_CODE));
+      setWhatsAppWebUrl(response.whatsAppWebUrl || buildWhatsAppWebUrl(response.whatsAppUrl || "", response.sandboxJoinCode || SANDBOX_JOIN_CODE));
       toast.success("Seller profile created. Follow the WhatsApp steps below to finish onboarding.");
     } catch (err) {
       const status = err?.status || err?.response?.status;
@@ -315,13 +352,33 @@ export default function CreateSellerPage() {
                     ))}
                   </select>
                 ) : (
-                  <input
-                    name={field.key}
-                    value={form[field.key]}
-                    onChange={handleChange}
-                    placeholder={field.placeholder}
-                    style={{ width: "100%", borderRadius: 14, border: "1px solid #DDD6FE", padding: "12px 14px", fontSize: 14, color: "#111827", background: "#FCFBFF", outline: "none" }}
-                  />
+                  <>
+                    <input
+                      name={field.key}
+                      value={form[field.key]}
+                      onChange={handleChange}
+                      placeholder={field.placeholder}
+                      style={{ width: "100%", borderRadius: 14, border: "1px solid #DDD6FE", padding: "12px 14px", fontSize: 14, color: "#111827", background: "#FCFBFF", outline: "none" }}
+                    />
+                    {field.key === "phone_number" && sandboxConnectAppUrl && (
+                      <div style={{ marginTop: 10, padding: 14, borderRadius: 16, background: "#F8FAFF", border: "1px solid #DBEAFE" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8", marginBottom: 8 }}>
+                          Connect your WhatsApp number to the Twilio sandbox now
+                        </div>
+                        <div style={{ fontSize: 13, color: "#475569", marginBottom: 12, lineHeight: 1.6 }}>
+                          Open one of these links and send <strong>{SANDBOX_JOIN_CODE}</strong> to register your number with the sandbox before finishing onboarding.
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                          <a href={sandboxConnectAppUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, background: "#25D366", color: "#fff", textDecoration: "none", fontWeight: 700 }}>
+                            Open in WhatsApp App
+                          </a>
+                          <a href={sandboxConnectWebUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, background: "#111827", color: "#fff", textDecoration: "none", fontWeight: 700 }}>
+                            Open in WhatsApp Web
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </label>
             ))}
@@ -444,6 +501,16 @@ export default function CreateSellerPage() {
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px 56px", background: "linear-gradient(180deg, #FCFBFF 0%, #F8F4FF 100%)", minHeight: "100vh", fontFamily: APP_FONT }}>
+      <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", marginBottom: 20 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg, #6F2DBD, #8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(111,45,189,0.22)" }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" fill="white" fillOpacity="0.95" />
+            <circle cx="9" cy="9" r="3" fill="white" />
+          </svg>
+        </div>
+        <span style={{ fontSize: 15, fontWeight: 800, color: "#5B21B6" }}>Pragati Agent</span>
+      </Link>
+
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} style={{ marginBottom: 24, padding: 24, borderRadius: 24, background: "linear-gradient(135deg, #FFFFFF 0%, #F8F4FF 100%)", border: "1px solid #E9E5F5", boxShadow: "0 16px 42px rgba(111,45,189,0.08)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 20 }}>
           <div style={{ maxWidth: 680 }}>
@@ -624,8 +691,20 @@ export default function CreateSellerPage() {
               </div>
               <div style={{ padding: "12px 14px", borderRadius: 14, background: "#FFFFFF", border: "1px solid #EEE7FF" }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Connect the WhatsApp sandbox</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+                  {whatsAppAppUrl && (
+                    <a href={whatsAppAppUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, background: "#25D366", color: "#fff", textDecoration: "none", fontWeight: 700 }}>
+                      Open in WhatsApp App
+                    </a>
+                  )}
+                  {whatsAppWebUrl && (
+                    <a href={whatsAppWebUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, background: "#111827", color: "#fff", textDecoration: "none", fontWeight: 700 }}>
+                      Open in WhatsApp Web
+                    </a>
+                  )}
+                </div>
                 <div style={{ fontSize: 13, color: "#4B5563", lineHeight: 1.7 }}>
-                  1. Open the WhatsApp sandbox link below.<br />
+                  1. Open one of the links above to launch WhatsApp.<br />
                   2. Send <strong>{result.sandboxJoinCode || SANDBOX_JOIN_CODE}</strong> to join the sandbox.<br />
                   3. Then send <strong>EVALUATE {result.seller_id}</strong> from WhatsApp to trigger the AI underwriting result.
                 </div>

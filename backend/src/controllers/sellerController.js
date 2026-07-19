@@ -3,7 +3,7 @@ import { evaluateRules } from "../services/rulesEngine.js";
 import { scoreSeller } from "../services/mlService.js";
 import { createSeller, getSellerById } from "../services/sellerService.js";
 import { getSellerProfile, listSellerProfiles } from "../services/sellerProfileService.js";
-import { buildWhatsAppUrl } from "../config/twilio.js";
+import { buildWhatsAppUrl, buildWhatsAppAppUrl, buildWhatsAppWebUrl } from "../config/twilio.js";
 import { queueNotification, buildLoanEvaluationWhatsAppMessage } from "../services/notificationService.js";
 import { runLoanEvaluationPipeline } from "../controllers/loanController.js";
 
@@ -54,11 +54,15 @@ export async function registerSeller(req, res) {
   const seller = await createSeller(payload);
   const whatsAppUrl = buildWhatsAppUrl();
   const sandboxJoinCode = "join large-president";
+  const whatsAppAppUrl = buildWhatsAppAppUrl(sandboxJoinCode);
+  const whatsAppWebUrl = buildWhatsAppWebUrl(sandboxJoinCode);
 
   void queueNotification({
     sellerId: seller.seller_id,
     phoneNumber: seller.phone_number,
-    sellerMessage: `Welcome ${seller.seller_name}! Your seller profile is ready. Open the WhatsApp sandbox link and send '${sandboxJoinCode}' to connect the sandbox, then send EVALUATE ${seller.seller_id} from WhatsApp to request your loan evaluation.`,
+    sellerMessage: `Welcome ${seller.seller_name}! Your seller profile is ready. Open the WhatsApp sandbox link and send '${sandboxJoinCode}' to connect the sandbox. You will also receive your loan decision directly on WhatsApp.
+
+Then send EVALUATE ${seller.seller_id} from WhatsApp anytime for a fresh loan evaluation.`,
     loanStatus: null,
     loanLimit: null,
     riskClass: null,
@@ -67,11 +71,38 @@ export async function registerSeller(req, res) {
     console.error("Failed to send seller onboarding WhatsApp message", error);
   });
 
+  try {
+    const evaluationResponse = await runLoanEvaluationPipeline({
+      sellerId: seller.seller_id,
+      sellerData: seller.seller_data,
+      language: seller.preferred_language || "English",
+    });
+
+    const loanDecisionMessage = buildLoanEvaluationWhatsAppMessage(evaluationResponse);
+
+    void queueNotification({
+      sellerId: seller.seller_id,
+      phoneNumber: seller.phone_number,
+      body: loanDecisionMessage,
+      sellerMessage: evaluationResponse.seller_message,
+      loanStatus: evaluationResponse.decision.decision_status,
+      loanLimit: evaluationResponse.decision.loan_limit,
+      riskClass: evaluationResponse.decision.risk_class,
+      improvementPlan: evaluationResponse.improvement_plan ?? [],
+    }).catch((error) => {
+      console.error("Failed to send initial loan decision WhatsApp message", error);
+    });
+  } catch (error) {
+    console.error("Failed to generate initial loan decision during onboarding", error);
+  }
+
   res.status(201).json({
     seller_id: seller.seller_id,
     registration_status: "created",
     next_step: "Loan evaluation available",
     whatsAppUrl,
+    whatsAppAppUrl,
+    whatsAppWebUrl,
     sandboxJoinCode: sandboxJoinCode,
   });
 }

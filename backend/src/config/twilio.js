@@ -52,6 +52,39 @@ export function buildWhatsAppUrl() {
   return `https://wa.me/${number}`;
 }
 
+export function buildWhatsAppAppUrl(joinCode = "") {
+  const whatsapp = twilioConfig.whatsappNumber.trim();
+  if (!whatsapp) {
+    throw new Error("Twilio WhatsApp number is not configured");
+  }
+  const number = whatsapp.replace(/[^0-9]/g, "");
+  const normalizedPhone = `+${number}`;
+  const query = [`phone=${encodeURIComponent(normalizedPhone)}`];
+
+  if (joinCode) {
+    query.push(`text=${encodeURIComponent(joinCode)}`);
+  }
+
+  query.push("type=phone_number", "app_absent=0");
+  return `https://api.whatsapp.com/send/?${query.join("&")}`;
+}
+
+export function buildWhatsAppWebUrl(joinCode = "") {
+  const whatsapp = twilioConfig.whatsappNumber.trim();
+  if (!whatsapp) {
+    throw new Error("Twilio WhatsApp number is not configured");
+  }
+  const number = whatsapp.replace(/[^0-9]/g, "");
+  const normalizedPhone = `+${number}`;
+  const query = [`phone=${encodeURIComponent(normalizedPhone)}`];
+
+  if (joinCode) {
+    query.push(`text=${encodeURIComponent(joinCode)}`);
+  }
+
+  return `https://web.whatsapp.com/send?${query.join("&")}`;
+}
+
 export function logTwilioConfig() {
   const configured = Boolean(
     twilioConfig.accountSid &&

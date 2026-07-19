@@ -130,7 +130,7 @@ function Sidebar({ collapsed, onClose, isMobile }) {
   return (
     <aside style={sidebarStyle}>
       {/* Logo */}
-      <div style={{
+      <Link to="/" style={{
         height: TOPBAR_HEIGHT,
         display: "flex",
         alignItems: "center",
@@ -139,6 +139,7 @@ function Sidebar({ collapsed, onClose, isMobile }) {
         flexShrink: 0,
         justifyContent: collapsed && !isMobile ? "center" : "flex-start",
         gap: "10px",
+        textDecoration: "none",
       }}>
         {/* Logo icon */}
         <div style={{
@@ -180,7 +181,7 @@ function Sidebar({ collapsed, onClose, isMobile }) {
             <X style={{ width: 18, height: 18 }} />
           </button>
         )}
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: "16px 12px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "3px" }}>

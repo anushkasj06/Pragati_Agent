@@ -120,9 +120,9 @@ function Sidebar({ isMobile, onClose, seller }) {
       boxShadow: "2px 0 16px rgba(111,45,189,0.06)",
     }}>
       {/* Brand */}
-      <div style={{ height: S.topH, display: "flex", alignItems: "center",
+      <Link to="/" style={{ height: S.topH, display: "flex", alignItems: "center",
         padding: "0 20px", borderBottom: `1px solid ${S.sidebarBorder}`,
-        flexShrink: 0, gap: 12, justifyContent: "space-between" }}>
+        flexShrink: 0, gap: 12, justifyContent: "space-between", textDecoration: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0,
             background: "linear-gradient(135deg,#6F2DBD,#8B5CF6)",
@@ -144,7 +144,7 @@ function Sidebar({ isMobile, onClose, seller }) {
             <X style={{ width: 16, height: 16 }} />
           </button>
         )}
-      </div>
+      </Link>
 
       {/* Seller chip */}
       <div style={{ margin: "16px 14px 8px", padding: "12px 14px", borderRadius: 14,

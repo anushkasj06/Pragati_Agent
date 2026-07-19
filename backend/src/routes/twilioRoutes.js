@@ -24,9 +24,9 @@ function isEvaluationRequest(text) {
   const normalized = String(text || "").trim().toLowerCase();
   if (!normalized) return false;
 
-  if (/^(evaluate|eval|loan)(\s+[a-z0-9_-]+)?$/i.test(normalized)) return true;
-  if (normalized.includes("loan evaluation")) return true;
+  if (/^(evaluate|eval|loan|evalute)([\s_-]+[a-z0-9_-]+)?$/i.test(normalized)) return true;
   if (normalized.includes("evaluate loan")) return true;
+  if (normalized.includes("evalute loan")) return true;
   if (normalized.includes("check loan")) return true;
   return false;
 }
@@ -99,7 +99,7 @@ router.post(["/", "/incoming"], async (req, res) => {
     });
 
     let seller = null;
-    const match = incomingText.match(/(?:EVALUATE|EVAL|LOAN)\s+([A-Za-z0-9_-]+)/i);
+    const match = incomingText.match(/(?:EVALUATE|EVAL|LOAN|EVALUTE)[\s_-]*([A-Za-z0-9_-]+)/i);
     const sellerIdFromText = match?.[1]?.toUpperCase();
     const shouldRunEvaluation = isEvaluationRequest(incomingText);
 

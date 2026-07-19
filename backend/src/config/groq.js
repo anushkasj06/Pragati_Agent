@@ -56,6 +56,7 @@ export function validateGroqConfig() {
 
 export function getGroqApiKey()  { return resolveGroqConfig().apiKey; }
 export function getGroqModel()   { return resolveGroqConfig().model; }
+export function getGroqFallbackModel() { return process.env.GROQ_FALLBACK_MODEL || process.env.LLAMA_FALLBACK_MODEL || ""; }
 export function getGroqBaseUrl() { return resolveGroqConfig().baseUrl; }
 
 /**
@@ -134,24 +135,25 @@ function toChatMessages(messages) {
  * @returns {Promise<{content: string, usage: object|null, model: string, elapsed_ms: number}>}
  */
 export async function chatCompletion(messages, options = {}) {
-  const apiKey  = getGroqApiKey();
-  const model   = options.model       ?? getGroqModel();
-  const baseUrl = getGroqBaseUrl();
-  const requestUrl = buildGroqRequestUrl(baseUrl);
+  const apiKey      = getGroqApiKey();
+  const primaryModel = options.model       ?? getGroqModel();
+  const fallbackModel = getGroqFallbackModel();
+  const baseUrl      = getGroqBaseUrl();
+  const requestUrl   = buildGroqRequestUrl(baseUrl);
 
   if (!apiKey) {
     const err = new Error("Missing GROQ_API_KEY in .env");
-    logger.error("Groq request rejected — no API key", { model });
+    logger.error("Groq request rejected — no API key", { model: primaryModel });
     throw err;
   }
 
   const requestBody = {
-    model,
+    model:        primaryModel,
     messages,
-    temperature: options.temperature ?? GROQ_TEMPERATURE,
-    top_p:       options.topP        ?? GROQ_TOP_P,
-    max_tokens:  options.maxTokens   ?? GROQ_MAX_TOKENS,
-    stream:      false,
+    temperature:  options.temperature ?? GROQ_TEMPERATURE,
+    top_p:        options.topP        ?? GROQ_TOP_P,
+    max_tokens:   options.maxTokens   ?? GROQ_MAX_TOKENS,
+    stream:       false,
   };
 
   // One retry only — for 429 (rate-limit) and network timeouts
@@ -161,7 +163,7 @@ export async function chatCompletion(messages, options = {}) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const start = Date.now();
     try {
-      logger.info("Groq HTTP request", { model, attempt, request_url: requestUrl });
+      logger.info("Groq HTTP request", { model: primaryModel, attempt, request_url: requestUrl });
 
       const response = await getGroqClient().post("chat/completions", requestBody, {
         headers: getGroqHeaders(),
@@ -174,7 +176,7 @@ export async function chatCompletion(messages, options = {}) {
 
       logger.info("Groq HTTP response", {
         provider:          "groq",
-        model,
+        model:             primaryModel,
         status_code:       response.status,
         elapsed_ms:        elapsed,
         prompt_tokens:     usage?.prompt_tokens,
@@ -193,7 +195,7 @@ export async function chatCompletion(messages, options = {}) {
 
       logger.error("Groq HTTP error", {
         provider:    "groq",
-        model,
+        model:        primaryModel,
         status_code: status,
         error:       error.message,
         error_code:  error.code,
@@ -205,7 +207,7 @@ export async function chatCompletion(messages, options = {}) {
       // Structured error for known status codes — do NOT retry these
       if (status === 401) throw Object.assign(new Error("Groq: invalid API key (401)"),        { statusCode: 401 });
       if (status === 403) throw Object.assign(new Error("Groq: access forbidden (403)"),       { statusCode: 403 });
-      if (status === 404) throw Object.assign(new Error(`Groq: model not found (404): ${model}`), { statusCode: 404 });
+      if (status === 404) throw Object.assign(new Error(`Groq: model not found (404): ${primaryModel}`), { statusCode: 404 });
       if (status === 500) throw Object.assign(new Error("Groq: internal server error (500)"),  { statusCode: 502 });
 
       if (!isRetryable || attempt >= MAX_ATTEMPTS) break;
@@ -216,15 +218,54 @@ export async function chatCompletion(messages, options = {}) {
         error.response?.headers?.["Retry-After"] || "1";
       const sleepMs = Math.min(Number(retryAfterHeader) * 1000 || 1000, 5000);
 
-      logger.warn("Groq retrying after transient failure", { model, attempt, sleep_ms: sleepMs, status_code: status });
+      logger.warn("Groq retrying after transient failure", { model: primaryModel, attempt, sleep_ms: sleepMs, status_code: status });
       await new Promise((r) => setTimeout(r, sleepMs));
+    }
+  }
+
+  if (fallbackModel && fallbackModel !== primaryModel) {
+    logger.warn("Groq primary model failed, attempting fallback model", { primaryModel, fallbackModel });
+
+    const fallbackBody = { ...requestBody, model: fallbackModel };
+    try {
+      const start = Date.now();
+      const response = await getGroqClient().post("chat/completions", fallbackBody, {
+        headers: getGroqHeaders(),
+      });
+
+      const elapsed = Date.now() - start;
+      const choice  = response.data?.choices?.[0];
+      const content = choice?.message?.content ?? "";
+      const usage   = response.data?.usage ?? null;
+
+      logger.info("Groq fallback HTTP response", {
+        provider:          "groq",
+        model:             fallbackModel,
+        status_code:       response.status,
+        elapsed_ms:        elapsed,
+        prompt_tokens:     usage?.prompt_tokens,
+        completion_tokens: usage?.completion_tokens,
+        total_tokens:      usage?.total_tokens,
+        attempt:           "fallback",
+      });
+
+      return { content, usage, model: fallbackModel, elapsed_ms: elapsed, status_code: response.status };
+    } catch (fallbackError) {
+      logger.error("Groq fallback model failed", {
+        provider:    "groq",
+        model:       fallbackModel,
+        error:       fallbackError.message,
+        status_code: fallbackError.response?.status,
+      });
+      lastError = fallbackError;
     }
   }
 
   const wrapped = new Error(`Groq request failed: ${lastError?.message ?? "unknown error"}`);
   wrapped.details = {
     provider:    "groq",
-    model,
+    model:       primaryModel,
+    fallback_model: fallbackModel || null,
     request_url: requestUrl,
     error:       lastError?.message,
     status_code: lastError?.response?.status,
